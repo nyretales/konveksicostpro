@@ -94,6 +94,28 @@ details.card[open] summary{margin-bottom:16px}
 @media(max-width:480px){#offerKpis th,#offerKpis td{padding:9px 6px;font-size:12px}#offerKpis td:first-child,#offerKpis th:first-child{min-width:104px}}
 .tl{display:grid;grid-template-columns:1fr 96px auto;gap:10px;margin-bottom:12px;align-items:center}
 .dz{display:block;max-width:100%;max-height:340px;margin:0 auto;object-fit:contain;border-radius:24px;background:#fff;box-shadow:var(--out)}
+
+/* ---------- CROP ---------- */
+#cropModal{position:fixed;inset:0;z-index:9999;display:none;flex-direction:column;background:rgba(31,29,43,.96);padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+#cropModal.open{display:flex}
+#cropModal .ct{color:#fff;font-weight:900;text-align:center;padding:14px 16px 4px}
+#cropModal .cs{color:#ffd9b0;font-size:12px;text-align:center;padding:0 16px 8px}
+#cropArea{flex:1;min-height:0;display:grid;place-items:center;padding:10px}
+#cropStage{position:relative;touch-action:none;user-select:none;-webkit-user-select:none;line-height:0}
+#cropStage img{display:block;max-width:calc(100vw - 20px);max-height:calc(100svh - 230px);pointer-events:none;-webkit-user-drag:none}
+#cropBox{position:absolute;border:2px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.6);cursor:move;touch-action:none;
+ background:linear-gradient(rgba(255,255,255,.35),rgba(255,255,255,.35)) 33.3% 0/1px 100% no-repeat,linear-gradient(rgba(255,255,255,.35),rgba(255,255,255,.35)) 66.6% 0/1px 100% no-repeat,linear-gradient(rgba(255,255,255,.35),rgba(255,255,255,.35)) 0 33.3%/100% 1px no-repeat,linear-gradient(rgba(255,255,255,.35),rgba(255,255,255,.35)) 0 66.6%/100% 1px no-repeat}
+#cropBox i{position:absolute;width:30px;height:30px;touch-action:none}
+#cropBox i::after{content:"";position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--accent);border:2px solid #fff}
+#cropBox i[data-m=nw]{left:-15px;top:-15px;cursor:nwse-resize}#cropBox i[data-m=ne]{right:-15px;top:-15px;cursor:nesw-resize}
+#cropBox i[data-m=sw]{left:-15px;bottom:-15px;cursor:nesw-resize}#cropBox i[data-m=se]{right:-15px;bottom:-15px;cursor:nwse-resize}
+#cropBox i[data-m=n]{left:50%;top:-15px;margin-left:-15px;cursor:ns-resize}#cropBox i[data-m=s]{left:50%;bottom:-15px;margin-left:-15px;cursor:ns-resize}
+#cropBox i[data-m=w]{top:50%;left:-15px;margin-top:-15px;cursor:ew-resize}#cropBox i[data-m=e]{top:50%;right:-15px;margin-top:-15px;cursor:ew-resize}
+#cropRatios{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:6px 12px}
+#cropRatios button{padding:6px 14px;border-radius:9999px;font-weight:800;font-size:12px;background:#fff3e4;color:var(--ink)}
+#cropRatios button.on{background:var(--accent);color:#fff}
+#cropModal .cb{display:flex;gap:10px;justify-content:center;padding:10px 16px 16px}
+#cropModal .cb .btn{flex:1;max-width:200px}
 /* ---------- CHROME RING DOCK (rose gold on #1F1D2B) ---------- */
 .dockwrap{position:fixed;left:0;right:0;bottom:0;z-index:40;pointer-events:none;padding:26px 8px calc(10px + env(safe-area-inset-bottom,0px));background:linear-gradient(to top,rgba(255,248,239,.92) 35%,transparent)}
 .hold{display:flex;justify-content:center;perspective:1000px}
@@ -214,7 +236,7 @@ details.card[open] summary{margin-bottom:16px}
 
  <div class="card"><h2>Gambar desain</h2><div id="designBox"></div>
   <label class="btn small" style="display:inline-flex">Pilih / ambil foto<input type="file" accept="image/*" hidden onchange="pickDesign(event)"></label>
-  <p class="sub" style="margin-top:10px">1 gambar per order, otomatis diperkecil. Tercetak di lembar Penawaran, tersimpan bersama order saat menekan Simpan order, dan ikut di Backup.</p></div>
+  <p class="sub" style="margin-top:10px">1 gambar per order, bisa dipotong (crop) dan otomatis diperkecil. Tercetak di lembar Penawaran, tersimpan bersama order saat menekan Simpan order, dan ikut di Backup.</p></div>
 
  <details class="card"><summary>Opsi lanjutan (boleh dilewati — sudah ada nilai bawaan)</summary>
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -532,11 +554,50 @@ function updTailorInfo(c){const el=$('tailorInfo');if(!el)return;if(!tailors.len
  const sum=tailors.reduce((a,x)=>a+(+x.pcs||0),0),d=c.units-sum;if(!sum){el.textContent='Belum diisi: upah dihitung dibagi rata ke jumlah penjahit di Pengaturan.';el.style.color='';return}
  el.textContent=`Terbagi ${sum} dari ${c.units} pcs`+(d>0?` — sisa ${d} pcs belum dibagi`:d<0?` — kelebihan ${-d} pcs`:' ✓');el.style.color=d?'#d12b30':'#12804f'}
 function renderDesign(){const el=$('designBox');if(!el)return;
- el.innerHTML=designImg?`<img class="dz" src="${designImg}" alt="Gambar desain"><div class="actions" style="margin:12px 0 0"><button class="btn danger small" onclick="delDesign()">Hapus gambar</button></div>`:'<p class="sub" style="margin-bottom:12px">Belum ada gambar desain.</p>'}
+ el.innerHTML=designImg?`<img class="dz" src="${designImg}" alt="Gambar desain"><div class="actions" style="margin:12px 0 0"><button class="btn small" onclick="openCrop(designImg)">Potong ulang</button><button class="btn danger small" onclick="delDesign()">Hapus gambar</button></div>`:'<p class="sub" style="margin-bottom:12px">Belum ada gambar desain.</p>'}
 function pickDesign(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();
- r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,800/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
-  const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);designImg=c.toDataURL('image/jpeg',.75);renderDesign()};
-  im.onerror=()=>alert('Gambar tidak bisa dibaca.');im.src=r.result};r.readAsDataURL(file);e.target.value=''}
+ r.onload=()=>openCrop(r.result);r.onerror=()=>alert('Gambar tidak bisa dibaca.');r.readAsDataURL(file);e.target.value=''}
+/* ---- Crop ---- */
+const CR={l:0,t:0,r:0,b:0,W:0,H:0,ratio:0,mode:null,st:null,px:0,py:0,MIN:40};
+function openCrop(src){const m=$('cropModal'),im=$('cropImg');if(!src)return;
+ im.onload=()=>{CR.W=im.clientWidth;CR.H=im.clientHeight;initCropBox()};
+ im.onerror=()=>{m.classList.remove('open');alert('Gambar tidak bisa dibaca.')};
+ m.classList.add('open');document.body.style.overflow='hidden';im.src=src;
+ document.querySelectorAll('#cropRatios button').forEach(x=>x.classList.toggle('on',x.dataset.r==='0'));CR.ratio=0;
+ if(im.complete&&im.naturalWidth){CR.W=im.clientWidth;CR.H=im.clientHeight;initCropBox()}}
+function initCropBox(){const mx=CR.W*.06,my=CR.H*.06;CR.l=mx;CR.t=my;CR.r=CR.W-mx;CR.b=CR.H-my;if(CR.ratio)fitRatio();drawCrop()}
+function drawCrop(){const b=$('cropBox');b.style.left=CR.l+'px';b.style.top=CR.t+'px';b.style.width=(CR.r-CR.l)+'px';b.style.height=(CR.b-CR.t)+'px'}
+function fitRatio(){const cx=(CR.l+CR.r)/2,cy=(CR.t+CR.b)/2;let w=CR.r-CR.l,h=w/CR.ratio;
+ if(h>CR.H){h=CR.H;w=h*CR.ratio}if(w>CR.W){w=CR.W;h=w/CR.ratio}
+ let l=Math.max(0,Math.min(CR.W-w,cx-w/2)),t=Math.max(0,Math.min(CR.H-h,cy-h/2));CR.l=l;CR.r=l+w;CR.t=t;CR.b=t+h}
+function closeCrop(){$('cropModal').classList.remove('open');document.body.style.overflow='';$('cropImg').removeAttribute('src')}
+function applyCrop(){const im=$('cropImg'),k0=im.naturalWidth/CR.W,
+ sx=CR.l*k0,sy=CR.t*k0,sw=(CR.r-CR.l)*k0,sh=(CR.b-CR.t)*k0,
+ k=Math.min(1,800/Math.max(sw,sh)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(sw*k));c.height=Math.max(1,Math.round(sh*k));
+ const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,sx,sy,sw,sh,0,0,c.width,c.height);
+ designImg=c.toDataURL('image/jpeg',.8);closeCrop();renderDesign()}
+document.addEventListener('DOMContentLoaded',function(){const box=$('cropBox');
+ box.addEventListener('pointerdown',e=>{const h=e.target.closest('i');CR.mode=h?h.dataset.m:'move';CR.px=e.clientX;CR.py=e.clientY;CR.st={l:CR.l,t:CR.t,r:CR.r,b:CR.b};box.setPointerCapture(e.pointerId);e.preventDefault()});
+ box.addEventListener('pointermove',e=>{if(!CR.mode)return;const dx=e.clientX-CR.px,dy=e.clientY-CR.py,s=CR.st,W=CR.W,H=CR.H,M=CR.MIN,m=CR.mode;
+  if(m==='move'){const w=s.r-s.l,h=s.b-s.t,l=Math.max(0,Math.min(W-w,s.l+dx)),t=Math.max(0,Math.min(H-h,s.t+dy));CR.l=l;CR.r=l+w;CR.t=t;CR.b=t+h}
+  else{let l=s.l,t=s.t,r=s.r,b=s.b;
+   if(m.includes('w'))l=Math.max(0,Math.min(r-M,s.l+dx));if(m.includes('e'))r=Math.min(W,Math.max(l+M,s.r+dx));
+   if(m.includes('n'))t=Math.max(0,Math.min(b-M,s.t+dy));if(m.includes('s'))b=Math.min(H,Math.max(t+M,s.b+dy));
+   if(CR.ratio){const q=CR.ratio;let w=r-l,h=b-t;
+    if(m==='n'||m==='s'){w=h*q}else{h=w/q}
+    // batas ruang yang tersedia
+    const aw=m.includes('w')?s.r:m.includes('e')?W-s.l:Math.min(s.l+s.r,2*W-s.l-s.r),ah=m.includes('n')?s.b:m.includes('s')?H-s.t:Math.min(s.t+s.b,2*H-s.t-s.b);
+    w=Math.min(w,aw,ah*q);h=w/q;if(w<M){w=M;h=w/q}
+    if(m.includes('w'))l=s.r-w;else if(m.includes('e'))r=s.l+w;else{const c=(s.l+s.r)/2;l=c-w/2;r=c+w/2}
+    if(m.includes('n'))t=s.b-h;else if(m.includes('s'))b=s.t+h;else{const c=(s.t+s.b)/2;t=c-h/2;b=c+h/2}
+    if(m.includes('w'))r=s.r;else if(m.includes('e'))l=s.l;if(m.includes('n'))b=s.b;else if(m.includes('s'))t=s.t;
+    r=l+w;b=t+h}
+   CR.l=l;CR.t=t;CR.r=r;CR.b=b}
+  drawCrop()});
+ const end=()=>{CR.mode=null};box.addEventListener('pointerup',end);box.addEventListener('pointercancel',end);
+ $('cropRatios').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;document.querySelectorAll('#cropRatios button').forEach(x=>x.classList.toggle('on',x===b));CR.ratio=+b.dataset.r;if(CR.ratio)fitRatio();drawCrop()});
+ window.addEventListener('resize',()=>{const m=$('cropModal');if(!m.classList.contains('open'))return;const im=$('cropImg'),W=im.clientWidth,H=im.clientHeight;if(!W||!CR.W)return;const kx=W/CR.W,ky=H/CR.H;CR.l*=kx;CR.r*=kx;CR.t*=ky;CR.b*=ky;CR.W=W;CR.H=H;drawCrop()});
+});
 function delDesign(){designImg='';renderDesign()}
 function resetForm(){if(!confirm('Mulai form order baru? Isian saat ini dikosongkan.'))return;
  setForm({code:nextCode(),date:new Date().toISOString().slice(0,10),customer:'',color1:'',color2:'',color3:'',colorP:'',extra:'',sizes:{},stripes:0,armtape:0,rework:0,dp:0,designs:1,sheets:1,leftover:db.s.leftoverValue,spQty:0,spBody:0,spPants:0,spNote:'',print:'none',collar:'none',cuff:'none',leg:'none',elastic:'yes',label:'yes',otheracc:'no'});go('input')}
@@ -606,4 +667,10 @@ if(!matchMedia('(prefers-reduced-motion:reduce)').matches)(function loop(){const
  cx+=(tx-cx)*.09;cy+=(ty-cy)*.09;dock.style.transform=`rotateX(${cx}deg) rotateY(${cy}deg)`;dock.style.setProperty('--sx',-cy*2.5+'px');requestAnimationFrame(loop)})();
 })();
 </script>
+<div id="cropModal" role="dialog" aria-modal="true" aria-label="Potong gambar">
+ <div class="ct">Potong gambar</div><div class="cs">Geser kotak atau tarik titik sudut/sisi untuk memilih bagian yang dipakai</div>
+ <div id="cropArea"><div id="cropStage"><img id="cropImg" alt=""><div id="cropBox"><i data-m="nw"></i><i data-m="n"></i><i data-m="ne"></i><i data-m="e"></i><i data-m="se"></i><i data-m="s"></i><i data-m="sw"></i><i data-m="w"></i></div></div></div>
+ <div id="cropRatios"><button data-r="0" class="on">Bebas</button><button data-r="1">1:1</button><button data-r="1.3333">4:3</button><button data-r="0.75">3:4</button><button data-r="1.7778">16:9</button></div>
+ <div class="cb"><button class="btn" onclick="closeCrop()">Batal</button><button class="btn primary" onclick="applyCrop()">Pakai</button></div>
+</div>
 </body></html>
