@@ -90,6 +90,7 @@ details.card summary::before{content:"▸";color:var(--accent);transition:transf
 details.card[open] summary::before{transform:rotate(90deg)}
 details.card[open] summary{margin-bottom:16px}
 
+@media(max-width:480px){#offerKpis th,#offerKpis td{padding:9px 6px;font-size:12px}#offerKpis td:first-child,#offerKpis th:first-child{min-width:104px}}
 /* ---------- CHROME RING DOCK (rose gold on #1F1D2B) ---------- */
 .dockwrap{position:fixed;left:0;right:0;bottom:0;z-index:40;pointer-events:none;padding:26px 8px calc(10px + env(safe-area-inset-bottom,0px));background:linear-gradient(to top,rgba(255,248,239,.92) 35%,transparent)}
 .hold{display:flex;justify-content:center;perspective:1000px}
@@ -240,10 +241,10 @@ details.card[open] summary{margin-bottom:16px}
  <div class="card"><h2>Perkiraan harga bahan per warna (sudah termasuk waste)</h2><div class="tw" id="fabricTable"></div></div>
  <div class="card"><h2>Harga penawaran</h2>
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" style="margin-bottom:14px">
-   <div class="field"><label>Markup wajar: margin dari harga jual (%)</label><input id="f-margin" type="number" min="0" max="90" value="30"><small>Margin = laba ÷ harga jual.</small></div>
-   <div class="field"><label>Diskon jika pelanggan tidak menawar (%)</label><input id="f-discount" type="number" min="0" value="3"></div>
+   <div class="field"><label>Harga yang diajukan (Rp / pasang)</label><input id="f-priceN" type="number" min="0" step="500" inputmode="numeric" placeholder="Otomatis"><small>Kosongkan = dihitung otomatis dari biaya.</small></div>
+   <div class="field"><label>Potongan diskon jika tidak menawar (Rp / pasang)</label><input id="f-discR" type="number" min="0" step="500" inputmode="numeric" placeholder="Otomatis"></div>
    <div class="field"><label>Harga yang disepakati (untuk pelunasan)</label><select id="f-pmode"><option value="normal">Harga markup wajar</option><option value="disc">Harga diskon (tanpa nego)</option><option value="min">Batas nego maksimal</option></select></div>
-   <div class="field"><label>Margin di batas nego maksimal (%)</label><input id="f-minmargin" type="number" min="0" value="15"></div>
+   <div class="field"><label>Batas nego terendah (Rp / pasang)</label><input id="f-minR" type="number" min="0" step="500" inputmode="numeric" placeholder="Otomatis"></div>
   </div>
   <div class="tw mb-3" id="offerKpis"></div>
   <div id="refPrice" class="sub"></div>
@@ -414,17 +415,20 @@ function calc(f,db){
  const effective=Math.max(0,cash-leftover);
  const hpp=units?effective/units:0;
  const m=Math.min(0.9,Math.max(0,(f.margin||0)/100)), step=S.roundTo||0;
- const unitNormal=units?ceilTo(effective/(1-m)/units,step):0;
- const unitDisc=units?ceilTo(unitNormal*(1-(f.discount||0)/100),step):0;
+ const autoN=units?ceilTo(effective/(1-m)/units,step):0;
+ const unitNormal=f.priceN>0?f.priceN:autoN;
+ const autoDp=units?ceilTo(unitNormal*(1-(f.discount||0)/100),step):0;
+ const unitDisc=f.discR>0?Math.max(0,unitNormal-f.discR):autoDp;
  const minMargin=Math.min(0.9,(f.minmargin||0)/100);
- const unitMin=units?ceilTo(effective/(1-minMargin)/units,step):0;
+ const autoMin=units?ceilTo(effective/(1-minMargin)/units,step):0;
+ const unitMin=f.minR>0?f.minR:autoMin;
  const unitUsed=f.pmode==='disc'?unitDisc:f.pmode==='min'?unitMin:unitNormal;
  const total=unitUsed*units, profit=total-effective;
  const dp=f.dp||0, balance=Math.max(0,total-dp);
  if(!units) warn.push('Jumlah order masih 0.');
  if(units&&unitUsed<hpp) warn.push('Harga jual di bawah HPP — order ini merugi.');
  if(units&&unitUsed<unitMin&&unitUsed>=hpp) warn.push('Harga jual di bawah batas margin minimum untuk nego.');
- return {units,shortQ,longQ,rows,fabricTotal,acc,accTotal,labor,laborTotal,printTotal,printRate,elec,rework,cash,leftover,effective,hpp,unitNormal,unitDisc,unitUsed,unitMin,total,profit,margin:total?profit/total*100:0,dp,balance,warn};
+ return {autoN,autoDR:unitNormal-autoDp,autoMin,units,shortQ,longQ,rows,fabricTotal,acc,accTotal,labor,laborTotal,printTotal,printRate,elec,rework,cash,leftover,effective,hpp,unitNormal,unitDisc,unitUsed,unitMin,total,profit,margin:total?profit/total*100:0,dp,balance,warn};
 }
 </script>
 <script id="ui">
@@ -451,11 +455,11 @@ function readForm(){
   fabricB:$('f-fabricB').value,fabricC:$('f-fabricC').value,colorP:$('f-colorP').value.trim(),color1:$('f-color1').value.trim(),color2:$('f-color2').value.trim(),color3:$('f-color3').value.trim(),extra:$('f-extra').value,
   collar:$('f-collar').value,cuff:$('f-cuff').value,leg:$('f-leg').value,elastic:$('f-elastic').value,stripes:N('f-stripes'),armtape:N('f-armtape'),label:$('f-label').value,otheracc:$('f-otheracc').value,
   print:$('f-print').value,sheets:N('f-sheets'),designs:N('f-designs'),rework:N('f-rework'),leftover:N('f-leftover'),spQty:N('f-spq'),spBody:N('f-spb'),spPants:N('f-spp'),spNote:$('f-spn').value,dp:N('f-dp'),
-  margin:N('f-margin'),discount:N('f-discount'),pmode:$('f-pmode').value,minmargin:N('f-minmargin'),sizes};
+  margin:30,discount:3,minmargin:15,priceN:N('f-priceN'),discR:N('f-discR'),minR:N('f-minR'),pmode:$('f-pmode').value,sizes};
 }
 function setForm(f){
- if(f.group==='SMA / Dewasa')f={...f,group:'Dewasa'};
- const map={code:'f-code',date:'f-date',customer:'f-customer',group:'f-group',product:'f-product',fabricB:'f-fabricB',fabricC:'f-fabricC',colorP:'f-colorP',color1:'f-color1',color2:'f-color2',color3:'f-color3',extra:'f-extra',collar:'f-collar',cuff:'f-cuff',leg:'f-leg',elastic:'f-elastic',stripes:'f-stripes',armtape:'f-armtape',label:'f-label',otheracc:'f-otheracc',print:'f-print',sheets:'f-sheets',designs:'f-designs',rework:'f-rework',leftover:'f-leftover',dp:'f-dp',spQty:'f-spq',spBody:'f-spb',spPants:'f-spp',spNote:'f-spn',margin:'f-margin',discount:'f-discount',pmode:'f-pmode',minmargin:'f-minmargin'};
+ if(f.group==='SMA / Dewasa')f={...f,group:'Dewasa'};f={priceN:'',discR:'',minR:'',...f};
+ const map={priceN:'f-priceN',discR:'f-discR',minR:'f-minR',code:'f-code',date:'f-date',customer:'f-customer',group:'f-group',product:'f-product',fabricB:'f-fabricB',fabricC:'f-fabricC',colorP:'f-colorP',color1:'f-color1',color2:'f-color2',color3:'f-color3',extra:'f-extra',collar:'f-collar',cuff:'f-cuff',leg:'f-leg',elastic:'f-elastic',stripes:'f-stripes',armtape:'f-armtape',label:'f-label',otheracc:'f-otheracc',print:'f-print',sheets:'f-sheets',designs:'f-designs',rework:'f-rework',leftover:'f-leftover',dp:'f-dp',spQty:'f-spq',spBody:'f-spb',spPants:'f-spp',spNote:'f-spn',pmode:'f-pmode'};
  Object.entries(map).forEach(([k,id])=>{if(f[k]!==undefined)$(id).value=f[k]});
  SIZES.forEach(z=>{$(`z-${z}-s`).value=f.sizes?.[z]?.s||0;$(`z-${z}-l`).value=f.sizes?.[z]?.l||0});
  refresh();
@@ -488,7 +492,7 @@ let last=null;
 function refresh(){
  const f=readForm();
  SIZES.forEach(z=>{const ok=!!(GROUPS[f.group]||{})[z];['s','l'].forEach(k=>{$(`z-${z}-${k}`).disabled=!ok;if(!ok)$(`z-${z}-${k}`).value=0});$(`z-${z}-t`).textContent=(N(`z-${z}-s`)+N(`z-${z}-l`))});
- const f2=readForm(),c=calc(f2,db);last={f:f2,c};
+ const f2=readForm(),c=calc(f2,db);last={f:f2,c};$('f-priceN').placeholder='Otomatis '+rp(c.autoN);$('f-discR').placeholder='Otomatis '+rp(c.autoDR);$('f-minR').placeholder='Otomatis '+rp(c.autoMin);
  $('f-total').value=c.units;$('f-total-unit').textContent=f2.product==='setelan'?'pasang (baju + celana)':'pcs';
  const hasB=f2.product!=='celana',hasC=f2.product!=='baju';
  ['f-fabricB','f-color1','f-color2','f-color3','f-collar','f-cuff','f-armtape'].forEach(id=>$(id).disabled=!hasB);
