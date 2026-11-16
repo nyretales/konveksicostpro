@@ -92,6 +92,7 @@ details.card[open] summary::before{transform:rotate(90deg)}
 details.card[open] summary{margin-bottom:16px}
 
 @media(max-width:480px){#offerKpis th,#offerKpis td{padding:9px 6px;font-size:12px}#offerKpis td:first-child,#offerKpis th:first-child{min-width:104px}}
+.tl{display:grid;grid-template-columns:1fr 96px auto;gap:10px;margin-bottom:12px;align-items:center}
 /* ---------- CHROME RING DOCK (rose gold on #1F1D2B) ---------- */
 .dockwrap{position:fixed;left:0;right:0;bottom:0;z-index:40;pointer-events:none;padding:26px 8px calc(10px + env(safe-area-inset-bottom,0px));background:linear-gradient(to top,rgba(255,248,239,.92) 35%,transparent)}
 .hold{display:flex;justify-content:center;perspective:1000px}
@@ -256,6 +257,9 @@ details.card[open] summary{margin-bottom:16px}
 <section class="panel" id="p-cost">
  <div id="warnCost"></div>
  <div class="card"><h2>Rincian biaya produksi</h2><div class="tw" id="costTable"></div></div>
+ <div class="card"><h2>Hasil kerja penjahit</h2><div id="tailors"></div>
+  <div class="actions" style="margin-bottom:8px"><button class="btn small" onclick="addTailor()">＋ Tambah penjahit</button><button class="btn small" onclick="evenTailors()">Bagi rata</button></div>
+  <p class="sub" id="tailorInfo" style="font-weight:800"></p><p class="sub">Isi jumlah pcs yang dikerjakan tiap penjahit (A–D, nama boleh diganti; bisa tambah penjahit lain). Upah = pcs × tarif per pcs, dan total pcs harus sama dengan jumlah order. Kosongkan jika belum ada data: upah dibagi rata.</p></div>
  <div class="card"><h2>Laba</h2><div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4" id="profitKpis"></div>
   <p class="sub">Modal tunai = semua uang keluar. Biaya efektif = modal tunai − nilai sisa kain. HPP = biaya efektif ÷ unit. Laba = pendapatan − biaya efektif.</p></div>
  <div class="actions"><button class="btn" onclick="go('offer')">← Penawaran</button><button class="btn primary" onclick="saveOrder()">Simpan order</button></div>
@@ -330,8 +334,8 @@ const SETTING_GROUPS=[
   ['baseBody','Badan baju M (kg/pcs)','kg',0.001],['baseSleeveLong','Sepasang lengan panjang M (kg)','kg',0.001],['basePants','Celana M (kg/pcs)','kg',0.001]],
   'Ukuran lain dihitung proporsional dari tabel LD/PB/lengan/panjang celana. Lengan pendek diturunkan dari rasio panjang lengan — ukur dan sesuaikan bila perlu.'],
  ['Upah borongan (Rp)',[
-  ['sew','Penjahit per orang per pcs','Rp',100],['sewPeople','Jumlah penjahit','orang',1],['sewPerPiece','Penjahit dihitung per potong? (1=ya, 0=per unit/set)','',1],['cut','Pemotong per pasang (set)','Rp',100],['design','Desainer per desain','Rp',100],['pack','Pelipat/packing per unit','Rp',50],['press','Operator press per pcs bercetak','Rp',100]],
-  'Upah penjahit = tarif × jumlah orang. Contoh order 50 set mencatat upah borongan total Rp950.000 (≈Rp19.000/set); bandingkan dengan hasil di tab Biaya & Laba dan koreksi bila selisih besar.'],
+  ['sew','Upah penjahit per pcs (total, dibagi rata ke penjahit)','Rp',100],['sewPeople','Jumlah penjahit (dipakai bila pembagian per orang kosong)','orang',1],['sewPerPiece','Penjahit dihitung per potong? (1=ya, 0=per unit/set)','',1],['cut','Pemotong per pasang (set)','Rp',100],['design','Desainer per desain','Rp',100],['pack','Pelipat/packing per unit','Rp',50],['press','Operator press per pcs bercetak','Rp',100]],
+  'Upah penjahit = jumlah pcs × tarif; pekerjaan dibagi ke jumlah penjahit (tiap orang menerima bagian sesuai pcs yang dikerjakan). Contoh order 50 set mencatat upah borongan total Rp950.000 (≈Rp19.000/set); bandingkan dengan hasil di tab Biaya & Laba dan koreksi bila selisih besar.'],
  ['Printing (Rp per lembar)',[['dtf','DTF','Rp',100],['sub','Sublimasi','Rp',100]],''],
  ['Benang',[['threadPrice','Benang jahit Rp/rol','Rp',100],['threadLen','Panjang rol (m)','m',1],['threadUse','Pemakaian (m/unit)','m',0.5],['overPrice','Benang obras Rp/rol','Rp',100],['overLen','Panjang rol (m)','m',1],['overUse','Pemakaian (m/unit)','m',0.5]],''],
  ['Rib',[['ribPrice','Harga rib Rp/kg','Rp',100],['ribGsm','Berat rib (gram per m²) — kisaran 230–250, dipakai 240','g/m²',1],['collarW','Kerah lebar (cm)','cm',0.5],['collarL','Kerah panjang (cm)','cm',0.5],['cuffW','Ujung lengan lebar (cm)','cm',0.5],['cuffL','Ujung lengan panjang (cm)','cm',0.5],['legW','Kaki celana lebar (cm)','cm',0.5],['legL','Kaki celana panjang (cm)','cm',0.5]],
@@ -400,7 +404,10 @@ function calc(f,db){
  const accTotal=acc.reduce((a,x)=>a+x.cost,0);
  const garments=bajuN+celN;
  const labor=[
-  ['Upah penjahit',`${S.sewPerPiece?garments+' potong':units+' unit'} × ${S.sewPeople} orang × ${S.sew}`,(S.sewPerPiece?garments:units)*S.sewPeople*S.sew],
+  ['Upah penjahit',(()=>{const n=S.sewPerPiece?garments:units,rate=S.sew,TL=f.tailors||[],T=TL.filter(x=>x.pcs>0);
+  if(T.length){const sum=T.reduce((a,x)=>a+x.pcs,0);if(n>0&&sum!==n)warn.push(`Pembagian penjahit (${sum} pcs) tidak sama dengan jumlah order (${n} pcs).`);
+   return TL.map((x,i)=>x.pcs>0?`${x.name||'Penjahit '+String.fromCharCode(65+i)}: ${x.pcs} pcs × ${rate} = ${rp(x.pcs*rate)}`:'').filter(Boolean).join(' · ')}
+  const P=Math.max(1,S.sewPeople||1),per=n/P;return `${n} pcs × ${rate} ÷ ${P} orang → ±${(Math.round(per*100)/100).toLocaleString('id-ID')} pcs/orang = ${rp(per*rate)}/orang`})(),(S.sewPerPiece?garments:units)*S.sew],
   ['Upah pemotong',`${units} × ${S.cut}`,units*S.cut],
   ['Upah desainer',`${f.designs||0} desain × ${S.design}`,(f.designs||0)*S.design],
   ['Upah lipat / packing',`${units} × ${S.pack}`,units*S.pack],
@@ -433,6 +440,8 @@ function calc(f,db){
 }
 </script>
 <script id="ui">
+const blankT=()=>['A','B','C','D'].map(()=>({name:'',pcs:0}));
+let tailors=blankT();
 const KEY='konveksi_cost_pro_v2';
 const $=id=>document.getElementById(id);
 const rp=n=>'Rp'+Math.round(Number(n||0)).toLocaleString('id-ID');
@@ -456,10 +465,10 @@ function readForm(){
   fabricB:$('f-fabricB').value,fabricC:$('f-fabricC').value,colorP:$('f-colorP').value.trim(),color1:$('f-color1').value.trim(),color2:$('f-color2').value.trim(),color3:$('f-color3').value.trim(),extra:$('f-extra').value,
   collar:$('f-collar').value,cuff:$('f-cuff').value,leg:$('f-leg').value,elastic:$('f-elastic').value,stripes:N('f-stripes'),armtape:N('f-armtape'),label:$('f-label').value,otheracc:$('f-otheracc').value,
   print:$('f-print').value,sheets:N('f-sheets'),designs:N('f-designs'),rework:N('f-rework'),leftover:N('f-leftover'),spQty:N('f-spq'),spBody:N('f-spb'),spPants:N('f-spp'),spNote:$('f-spn').value,dp:N('f-dp'),
-  margin:30,discount:3,minmargin:15,priceN:N('f-priceN'),discR:N('f-discR'),minR:N('f-minR'),pmode:$('f-pmode').value,sizes};
+  margin:30,discount:3,minmargin:15,priceN:N('f-priceN'),discR:N('f-discR'),minR:N('f-minR'),tailors:tailors.map(x=>({name:x.name,pcs:+x.pcs||0})),pmode:$('f-pmode').value,sizes};
 }
 function setForm(f){
- if(f.group==='SMA / Dewasa')f={...f,group:'Dewasa'};f={priceN:'',discR:'',minR:'',...f};
+ if(f.group==='SMA / Dewasa')f={...f,group:'Dewasa'};f={priceN:'',discR:'',minR:'',...f};tailors=(f.tailors&&f.tailors.length?f.tailors.map(x=>({name:x.name||'',pcs:+x.pcs||0})):blankT());renderTailors();
  const map={priceN:'f-priceN',discR:'f-discR',minR:'f-minR',code:'f-code',date:'f-date',customer:'f-customer',group:'f-group',product:'f-product',fabricB:'f-fabricB',fabricC:'f-fabricC',colorP:'f-colorP',color1:'f-color1',color2:'f-color2',color3:'f-color3',extra:'f-extra',collar:'f-collar',cuff:'f-cuff',leg:'f-leg',elastic:'f-elastic',stripes:'f-stripes',armtape:'f-armtape',label:'f-label',otheracc:'f-otheracc',print:'f-print',sheets:'f-sheets',designs:'f-designs',rework:'f-rework',leftover:'f-leftover',dp:'f-dp',spQty:'f-spq',spBody:'f-spb',spPants:'f-spp',spNote:'f-spn',pmode:'f-pmode'};
  Object.entries(map).forEach(([k,id])=>{if(f[k]!==undefined)$(id).value=f[k]});
  SIZES.forEach(z=>{$(`z-${z}-s`).value=f.sizes?.[z]?.s||0;$(`z-${z}-l`).value=f.sizes?.[z]?.l||0});
@@ -493,7 +502,7 @@ let last=null;
 function refresh(){
  const f=readForm();
  SIZES.forEach(z=>{const ok=!!(GROUPS[f.group]||{})[z];['s','l'].forEach(k=>{$(`z-${z}-${k}`).disabled=!ok;if(!ok)$(`z-${z}-${k}`).value=0});$(`z-${z}-t`).textContent=(N(`z-${z}-s`)+N(`z-${z}-l`))});
- const f2=readForm(),c=calc(f2,db);last={f:f2,c};$('f-priceN').placeholder='Otomatis '+rp(c.autoN);$('f-discR').placeholder='Otomatis '+rp(c.autoDR);$('f-minR').placeholder='Otomatis '+rp(c.autoMin);
+ const f2=readForm(),c=calc(f2,db);last={f:f2,c};$('f-priceN').placeholder='Otomatis '+rp(c.autoN);$('f-discR').placeholder='Otomatis '+rp(c.autoDR);$('f-minR').placeholder='Otomatis '+rp(c.autoMin);updTailorInfo(c);
  $('f-total').value=c.units;$('f-total-unit').textContent=f2.product==='setelan'?'pasang (baju + celana)':'pcs';
  const hasB=f2.product!=='celana',hasC=f2.product!=='baju';
  ['f-fabricB','f-color1','f-color2','f-color3','f-collar','f-cuff','f-armtape'].forEach(id=>$(id).disabled=!hasB);
@@ -507,6 +516,14 @@ function refresh(){
  $('costTable').innerHTML=`<table><thead><tr><th>Komponen</th><th>Dasar</th><th class="r">Biaya</th></tr></thead><tbody>${rowsC.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td class="r">${rp(r[2])}</td></tr>`).join('')}<tr><th colspan="2">Modal tunai</th><th class="r">${rp(c.cash)}</th></tr><tr><td colspan="2">Nilai sisa kain layak pakai</td><td class="r">−${rp(c.leftover)}</td></tr><tr><th colspan="2">Biaya efektif</th><th class="r">${rp(c.effective)}</th></tr></tbody></table>`;
  $('profitKpis').innerHTML=[['Pendapatan',rp(c.total)],['Modal tunai',rp(c.cash)],['Biaya efektif',rp(c.effective)],['HPP / unit',rp(c.hpp)],['Estimasi keuntungan',`<span class="${c.profit>=0?'pos':'neg'}">${rp(c.profit)}</span>`],['Margin',c.margin.toFixed(1)+'%'],['Laba / unit',rp(c.units?c.profit/c.units:0)],['Total unit',c.units]].map(([a,b])=>`<div class="kpi"><small>${a}</small><b>${b}</b></div>`).join('');
 }
+function renderTailors(){const el=$('tailors');if(!el)return;
+ el.innerHTML=tailors.length?tailors.map((x,i)=>`<div class="tl"><input class="cell" placeholder="Penjahit ${String.fromCharCode(65+i)}" value="${esc(x.name)}" oninput="tailors[${i}].name=this.value;refresh()"><input class="cell" type="number" min="0" inputmode="numeric" placeholder="pcs" value="${x.pcs||''}" oninput="tailors[${i}].pcs=+this.value||0;refresh()"><button class="btn danger small" onclick="delTailor(${i})">×</button></div>`).join(''):'<p class="sub" style="margin-bottom:10px">Belum ada penjahit. Klik Tambah penjahit.</p>'}
+function addTailor(){tailors.push({name:'',pcs:0});renderTailors();refresh()}
+function delTailor(i){tailors.splice(i,1);renderTailors();refresh()}
+function evenTailors(){const n=last?.c.units||0;if(!tailors.length)tailors=[{name:'',pcs:0},{name:'',pcs:0}];const P=tailors.length;tailors.forEach((x,i)=>x.pcs=Math.floor(n/P)+(i<n%P?1:0));renderTailors();refresh()}
+function updTailorInfo(c){const el=$('tailorInfo');if(!el)return;if(!tailors.length){el.textContent='';return}
+ const sum=tailors.reduce((a,x)=>a+(+x.pcs||0),0),d=c.units-sum;if(!sum){el.textContent='Belum diisi: upah dihitung dibagi rata ke jumlah penjahit di Pengaturan.';el.style.color='';return}
+ el.textContent=`Terbagi ${sum} dari ${c.units} pcs`+(d>0?` — sisa ${d} pcs belum dibagi`:d<0?` — kelebihan ${-d} pcs`:' ✓');el.style.color=d?'#d12b30':'#12804f'}
 function resetForm(){if(!confirm('Mulai form order baru? Isian saat ini dikosongkan.'))return;
  setForm({code:nextCode(),date:new Date().toISOString().slice(0,10),customer:'',color1:'',color2:'',color3:'',colorP:'',extra:'',sizes:{},stripes:0,armtape:0,rework:0,dp:0,designs:1,sheets:1,leftover:db.s.leftoverValue,spQty:0,spBody:0,spPants:0,spNote:'',print:'none',collar:'none',cuff:'none',leg:'none',elastic:'yes',label:'yes',otheracc:'no'});go('input')}
 function saveOrder(){
@@ -552,7 +569,7 @@ function restoreData(e){const file=e.target.files[0];if(!file)return;const r=new
   else if(Array.isArray(x.orders)&&x.materials){if(confirm('Ini backup versi lama. Hanya riwayat order (ringkasan) yang diimpor; harga & pola tidak diubah. Lanjut?')){x.orders.forEach(o=>{const cash=['fabric','accessories','labor','printing','electricity','other','rework'].reduce((s,k)=>s+Number(o[k]||0),0),eff=Math.max(0,cash-Number(o.leftover||0)),rev=Number(o.revenue||0);db.orders.push({id:uid(),savedAt:o.date||'',code:o.code,customer:o.customer,date:o.date,sum:{units:Number(o.qty||0),total:rev,unit:o.qty?rev/o.qty:0,cash,effective:eff,profit:rev-eff,margin:rev?(rev-eff)/rev*100:null}})});persist();renderSaved();alert('Riwayat lama diimpor.')}}
   else throw 0}catch(err){alert('File backup tidak valid.')}e.target.value=''};r.readAsText(file)}
 function resetAll(){if(confirm('Reset SEMUA pengaturan dan order? Unduh backup dulu.')){localStorage.removeItem(KEY);db={...structuredClone(DEFAULTS),orders:[]};fillFabricSelects();renderSettings();renderSaved();refresh()}}
-document.addEventListener('DOMContentLoaded',()=>{buildStatic();refresh()});
+document.addEventListener('DOMContentLoaded',()=>{buildStatic();renderTailors();refresh()});
 </script>
 <script>
 (()=>{
