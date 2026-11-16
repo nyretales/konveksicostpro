@@ -354,7 +354,7 @@ const DEFAULTS={
   elasticPrice:45000,elasticRoll:26,elasticUse:0.6,
   tapePrice:25000,tapeRoll:6,tapePants:5.75,tapeArm:5.75,
   labelPrice:5000,labelRoll:300,plastic:500,otherAcc:1000,
-  elecBill:250000,elecOrders:4.5,
+  elecBill:250000,elecOrders:4.5,depRate:5,
   reworkCost:50000,leftoverValue:50000,roundTo:500
  }
 };
@@ -370,7 +370,7 @@ const SETTING_GROUPS=[
  ['Rib',[['ribPrice','Harga rib Rp/kg','Rp',100],['ribGsm','Berat rib (gram per m²) — kisaran 230–250, dipakai 240','g/m²',1],['collarW','Kerah lebar (cm)','cm',0.5],['collarL','Kerah panjang (cm)','cm',0.5],['cuffW','Ujung lengan lebar (cm)','cm',0.5],['cuffL','Ujung lengan panjang (cm)','cm',0.5],['legW','Kaki celana lebar (cm)','cm',0.5],['legL','Kaki celana panjang (cm)','cm',0.5]],
   'Ukuran rib dalam cm, harga per kg. Berat rib 230–250 gsm; dipakai nilai tengah 240. Ubah bila pemasok memberi angka pasti.'],
  ['Karet, pita, dan lain-lain',[['elasticPrice','Karet Rp/rol','Rp',100],['elasticRoll','Panjang rol karet (m)','m',1],['elasticUse','Karet per celana (m)','m',0.1],['tapePrice','Pita Rp/rol','Rp',100],['tapeRoll','Panjang rol pita (m)','m',0.5],['tapePants','Pita per celana 3 garis (m)','m',0.05],['tapeArm','Pita per baju pita lengan (m)','m',0.05],['labelPrice','Label Rp/rol','Rp',100],['labelRoll','Isi rol label (pcs)','pcs',1],['plastic','Plastik Rp/pcs','Rp',50],['otherAcc','Aksesori lain Rp/pcs','Rp',50]],''],
- ['Listrik, rework, sisa',[['elecBill','Tagihan listrik per bulan','Rp',1000],['elecOrders','Perkiraan order per bulan','order',0.5],['reworkCost','Biaya rework per kejadian','Rp',1000],['leftoverValue','Nilai sisa kain default per order','Rp',1000],['roundTo','Pembulatan harga jual (Rp)','Rp',100]],'']
+ ['Listrik, rework, sisa',[['depRate','Penyusutan seluruh mesin (% dari harga satuan per pcs/pasang)','%',0.5],['elecBill','Tagihan listrik per bulan','Rp',1000],['elecOrders','Perkiraan order per bulan','order',0.5],['reworkCost','Biaya rework per kejadian','Rp',1000],['leftoverValue','Nilai sisa kain default per order','Rp',1000],['roundTo','Pembulatan harga jual (Rp)','Rp',100]],'Penyusutan mencakup seluruh mesin: mesin jahit, obras, jahit lurus, overdeck, mesin potong, mesin press, printer, komputer, dan sejenisnya. Dihitung sebesar persentase tersebut × harga satuan yang dipakai × jumlah unit, lalu masuk ke modal tunai dan HPP.']
 ];
 
 function sizeParts(group,size,S,fabricFactor){
@@ -447,25 +447,30 @@ function calc(f,db){
  const printTotal=units*(f.sheets||0)*printRate;
  const elec=S.elecOrders>0?S.elecBill/S.elecOrders:0;
  const rework=(f.rework||0)*S.reworkCost;
- const cash=fabricTotal+accTotal+laborTotal+printTotal+elec+rework;
+ const cash0=fabricTotal+accTotal+laborTotal+printTotal+elec+rework;
  const leftover=f.leftover||0;
- const effective=Math.max(0,cash-leftover);
- const hpp=units?effective/units:0;
+ const dRate=Math.max(0,(S.depRate||0)/100);
+ const E0=Math.max(0,cash0-leftover);
  const m=Math.min(0.9,Math.max(0,(f.margin||0)/100)), step=S.roundTo||0;
- const autoN=units?ceilTo(effective/(1-m)/units,step):0;
+ // harga otomatis: penyusutan = dRate x harga satuan, jadi harga = biaya ÷ (1 − margin − dRate)
+ const autoN=units?ceilTo(E0/Math.max(0.05,1-m-dRate)/units,step):0;
  const unitNormal=f.priceN>0?f.priceN:autoN;
  const autoDp=units?ceilTo(unitNormal*(1-(f.discount||0)/100),step):0;
  const unitDisc=f.discR>0?Math.max(0,unitNormal-f.discR):autoDp;
  const minMargin=Math.min(0.9,(f.minmargin||0)/100);
- const autoMin=units?ceilTo(effective/(1-minMargin)/units,step):0;
+ const autoMin=units?ceilTo(E0/Math.max(0.05,1-minMargin-dRate)/units,step):0;
  const unitMin=f.minR>0?f.minR:autoMin;
  const unitUsed=f.pmode==='disc'?unitDisc:f.pmode==='min'?unitMin:unitNormal;
+ const dep=unitUsed*units*dRate;
+ const cash=cash0+dep;
+ const effective=Math.max(0,cash-leftover);
+ const hpp=units?effective/units:0;
  const total=unitUsed*units, profit=total-effective;
  const dp=f.dp||0, balance=Math.max(0,total-dp);
  if(!units) warn.push('Jumlah order masih 0.');
  if(units&&unitUsed<hpp) warn.push('Harga jual di bawah HPP — order ini merugi.');
  if(units&&unitUsed<unitMin&&unitUsed>=hpp) warn.push('Harga jual di bawah batas margin minimum untuk nego.');
- return {autoN,autoDR:unitNormal-autoDp,autoMin,units,shortQ,longQ,rows,fabricTotal,acc,accTotal,labor,laborTotal,printTotal,printRate,elec,rework,cash,leftover,effective,hpp,unitNormal,unitDisc,unitUsed,unitMin,total,profit,margin:total?profit/total*100:0,dp,balance,warn};
+ return {autoN,autoDR:unitNormal-autoDp,autoMin,units,shortQ,longQ,rows,fabricTotal,acc,accTotal,labor,laborTotal,printTotal,printRate,elec,rework,dep,depRate:dRate*100,cash,leftover,effective,hpp,unitNormal,unitDisc,unitUsed,unitMin,total,profit,margin:total?profit/total*100:0,dp,balance,warn};
 }
 </script>
 <script id="ui">
@@ -538,10 +543,10 @@ function refresh(){
  ['f-fabricC','f-colorP','f-leg','f-elastic','f-stripes'].forEach(id=>$(id).disabled=!hasC);
  $('warnOffer').innerHTML=warnBox(c.warn);$('warnCost').innerHTML=warnBox(c.warn);
  $('fabricTable').innerHTML=`<table><thead><tr><th>Komponen</th><th>Kain</th><th class="r">Kain bersih</th><th class="r">Waste</th><th class="r">Beli (kg)</th><th class="r">Harga/kg</th><th class="r">Biaya</th></tr></thead><tbody>${c.rows.map(r=>`<tr><td>${esc(r.label)}</td><td>${esc(r.fabric)}</td><td class="r">${r.net.toFixed(2)} kg</td><td class="r">${r.waste}%</td><td class="r">${r.kg.toFixed(2)}</td><td class="r">${rp(r.price)}</td><td class="r">${rp(r.cost)}</td></tr>`).join('')||'<tr><td colspan="7" class="sub">Belum ada data.</td></tr>'}<tr><th colspan="6">Total kain</th><th class="r">${rp(c.fabricTotal)}</th></tr></tbody></table>`;
- $('offerKpis').innerHTML=(()=>{const un=f2.product==='setelan'?'pasang':'pcs',tr=(a,u,tt,b)=>`<tr><${b?'th':'td'}>${a}</${b?'th':'td'}><${b?'th':'td'} class="r">${u}</${b?'th':'td'}><${b?'th':'td'} class="r">${tt}</${b?'th':'td'}></tr>`;return `<table><thead><tr><th>Keterangan</th><th class="r">Per ${un}</th><th class="r">Total (${c.units} ${un})</th></tr></thead><tbody>`+tr('Total harga bahan','—',rp(c.fabricTotal))+tr('Harga dasar (bahan + upah + listrik, dll.)',rp(c.hpp),rp(c.effective))+tr('Harga markup wajar (harga yang diajukan)',rp(c.unitNormal),rp(c.unitNormal*c.units))+tr('Batas nego maksimal (harga terendah)',rp(c.unitMin),rp(c.unitMin*c.units))+tr('Harga diskon (jika pelanggan tidak menawar)',rp(c.unitDisc),rp(c.unitDisc*c.units))+tr('Harga disepakati',rp(c.unitUsed),rp(c.total),1)+tr('DP diterima','—',rp(c.dp))+tr('Sisa pelunasan saat serah terima','—',rp(c.balance),1)+`</tbody></table>`})();
+ $('offerKpis').innerHTML=(()=>{const un=f2.product==='setelan'?'pasang':'pcs',tr=(a,u,tt,b)=>`<tr><${b?'th':'td'}>${a}</${b?'th':'td'}><${b?'th':'td'} class="r">${u}</${b?'th':'td'}><${b?'th':'td'} class="r">${tt}</${b?'th':'td'}></tr>`;return `<table><thead><tr><th>Keterangan</th><th class="r">Per ${un}</th><th class="r">Total (${c.units} ${un})</th></tr></thead><tbody>`+tr('Total harga bahan','—',rp(c.fabricTotal))+tr('Harga dasar (bahan + upah + listrik + penyusutan mesin, dll.)',rp(c.hpp),rp(c.effective))+tr('Harga markup wajar (harga yang diajukan)',rp(c.unitNormal),rp(c.unitNormal*c.units))+tr('Batas nego maksimal (harga terendah)',rp(c.unitMin),rp(c.unitMin*c.units))+tr('Harga diskon (jika pelanggan tidak menawar)',rp(c.unitDisc),rp(c.unitDisc*c.units))+tr('Harga disepakati',rp(c.unitUsed),rp(c.total),1)+tr('DP diterima','—',rp(c.dp))+tr('Sisa pelunasan saat serah terima','—',rp(c.balance),1)+`</tbody></table>`})();
  const ref=f2.product==='baju'?'Acuan harga lapangan baju cotton: Rp90.000/pcs.':f2.product==='setelan'?'Acuan harga lapangan setelan: Rp95.000/set (langganan Rp85.000/set).':'Belum ada acuan harga celana saja.';
  $('refPrice').textContent=ref+' Bandingkan dengan harga/unit di atas.';
- const rowsC=[['Kain utama (termasuk waste)',c.rows.reduce((a,r)=>a+r.kg,0).toFixed(2)+' kg',c.fabricTotal],...c.acc.map(a=>[a.label,`${a.qty.toFixed(2)} ${a.unit}`,a.cost]),...c.labor,['Biaya printing (DTF / sublimasi)',f2.print==='none'?'tanpa printing':`${c.units} × ${f2.sheets} lembar × ${rp(c.printRate)}`,c.printTotal],['Listrik','tagihan ÷ order per bulan',c.elec],['Cadangan rework',`${f2.rework} kejadian × ${rp(db.s.reworkCost)}`,c.rework]];
+ const rowsC=[['Kain utama (termasuk waste)',c.rows.reduce((a,r)=>a+r.kg,0).toFixed(2)+' kg',c.fabricTotal],...c.acc.map(a=>[a.label,`${a.qty.toFixed(2)} ${a.unit}`,a.cost]),...c.labor,['Biaya printing (DTF / sublimasi)',f2.print==='none'?'tanpa printing':`${c.units} × ${f2.sheets} lembar × ${rp(c.printRate)}`,c.printTotal],['Listrik','tagihan ÷ order per bulan',c.elec],['Cadangan rework',`${f2.rework} kejadian × ${rp(db.s.reworkCost)}`,c.rework],['Penyusutan mesin (jahit, obras, overdeck, potong, press, printer, komputer, dll.)',`${c.depRate}% × ${rp(c.unitUsed)} × ${c.units}`,c.dep]];
  $('costTable').innerHTML=`<table><thead><tr><th>Komponen</th><th>Dasar</th><th class="r">Biaya</th></tr></thead><tbody>${rowsC.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td class="r">${rp(r[2])}</td></tr>`).join('')}<tr><th colspan="2">Modal tunai</th><th class="r">${rp(c.cash)}</th></tr><tr><td colspan="2">Nilai sisa kain layak pakai</td><td class="r">−${rp(c.leftover)}</td></tr><tr><th colspan="2">Biaya efektif</th><th class="r">${rp(c.effective)}</th></tr></tbody></table>`;
  $('profitKpis').innerHTML=[['Pendapatan',rp(c.total)],['Modal tunai',rp(c.cash)],['Biaya efektif',rp(c.effective)],['HPP / unit',rp(c.hpp)],['Estimasi keuntungan',`<span class="${c.profit>=0?'pos':'neg'}">${rp(c.profit)}</span>`],['Margin',c.margin.toFixed(1)+'%'],['Laba / unit',rp(c.units?c.profit/c.units:0)],['Total unit',c.units]].map(([a,b])=>`<div class="kpi"><small>${a}</small><b>${b}</b></div>`).join('');
 }
