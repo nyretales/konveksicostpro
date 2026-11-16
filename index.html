@@ -272,11 +272,13 @@ details.card[open] summary{margin-bottom:16px}
  <div class="card"><h2>Perkiraan harga bahan per warna (sudah termasuk waste)</h2><div class="tw" id="fabricTable"></div></div>
  <div class="card"><h2>Harga penawaran</h2>
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" style="margin-bottom:14px">
-   <div class="field"><label>Harga yang diajukan (Rp / pasang)</label><input id="f-priceN" type="number" min="0" step="500" inputmode="numeric" placeholder="Otomatis"><small>Kosongkan = dihitung otomatis dari biaya.</small></div>
+   <div class="field"><label>Cara menghitung harga</label><select id="f-sizeprice"><option value="size">Berbeda per ukuran (sesuai pemakaian kain)</option><option value="flat">Sama rata semua ukuran</option></select><small>Ukuran besar memakai kain lebih banyak, jadi harganya lebih tinggi.</small></div>
+   <div class="field"><label>Harga rata-rata yang diajukan (Rp / pasang)</label><input id="f-priceN" type="number" min="0" step="500" inputmode="numeric" placeholder="Otomatis"><small>Kosongkan = dihitung otomatis dari biaya tiap ukuran. Jika diisi, harga tiap ukuran disesuaikan proporsional sampai rata-ratanya sama.</small></div>
    <div class="field"><label>Potongan diskon jika tidak menawar (Rp / pasang)</label><input id="f-discR" type="number" min="0" step="500" inputmode="numeric" placeholder="Otomatis"></div>
    <div class="field"><label>Harga yang disepakati (untuk pelunasan)</label><select id="f-pmode"><option value="normal">Harga markup wajar</option><option value="disc">Harga diskon (tanpa nego)</option><option value="min">Batas nego maksimal</option></select></div>
    <div class="field"><label>Batas nego terendah (Rp / pasang)</label><input id="f-minR" type="number" min="0" step="500" inputmode="numeric" placeholder="Otomatis"></div>
   </div>
+  <div class="tw mb-3" id="sizePriceTable"></div>
   <div class="tw mb-3" id="offerKpis"></div>
   <div id="refPrice" class="sub"></div>
  </div>
@@ -452,25 +454,52 @@ function calc(f,db){
  const dRate=Math.max(0,(S.depRate||0)/100);
  const E0=Math.max(0,cash0-leftover);
  const m=Math.min(0.9,Math.max(0,(f.margin||0)/100)), step=S.roundTo||0;
- // harga otomatis: penyusutan = dRate x harga satuan, jadi harga = biaya ÷ (1 − margin − dRate)
- const autoN=units?ceilTo(E0/Math.max(0.05,1-m-dRate)/units,step):0;
- const unitNormal=f.priceN>0?f.priceN:autoN;
- const autoDp=units?ceilTo(unitNormal*(1-(f.discount||0)/100),step):0;
- const unitDisc=f.discR>0?Math.max(0,unitNormal-f.discR):autoDp;
  const minMargin=Math.min(0.9,(f.minmargin||0)/100);
- const autoMin=units?ceilTo(E0/Math.max(0.05,1-minMargin-dRate)/units,step):0;
- const unitMin=f.minR>0?f.minR:autoMin;
- const unitUsed=f.pmode==='disc'?unitDisc:f.pmode==='min'?unitMin:unitNormal;
- const dep=unitUsed*units*dRate;
+ const roundS=v=>step>0?Math.round(v/step)*step:v;
+ // ---- baris harga per ukuran (kain berbeda tiap ukuran) ----
+ const wB=1+(fb?.waste??10)/100, wC=1+(fc?.waste??10)/100, pB=Number(fb?.price||0), pC=Number(fc?.price||0);
+ const lines=[];
+ SIZES.forEach(z=>{const d=(GROUPS[f.group]||{})[z];
+  (hasB?[['s','Lengan pendek'],['l','Lengan panjang']]:[['sl','']]).forEach(([t,tn])=>{
+   const q=t==='sl'?(f.sizes[z]?.s||0)+(f.sizes[z]?.l||0):(f.sizes[z]?.[t]||0);if(!q)return;
+   let fab=0;
+   if(d){
+    if(hasB){const p=sizeParts(f.group,z,S,fb?.factor??1);fab+=(p.body+(t==='s'?p.sleeveShort:p.sleeveLong)*(f.color3?2:1))*wB*pB}
+    if(hasC){const p=sizeParts(f.group,z,S,fc?.factor??1);fab+=p.pants*wC*pC}
+   }
+   lines.push({size:z==='3XL'?'XXXL':z,type:tn,qty:q,fab});
+  });
+ });
+ if(f.spQty>0)lines.push({size:'Special',type:f.spNote||'',qty:f.spQty,fab:(hasB?(f.spBody||0)*wB*pB:0)+(hasC?(f.spPants||0)*wC*pC:0)});
+ // biaya non-kain (upah, benang, listrik, dll.) dibagi rata per unit; kain dihitung langsung sesuai ukuran
+ const flat=f.sizeprice==='flat';
+ const shared=units?(E0-fabricTotal)/units:0;
+ const denN=Math.max(0.05,1-m-dRate), denM=Math.max(0.05,1-minMargin-dRate);
+ const avg=k=>units?lines.reduce((a,l)=>a+l[k]*l.qty,0)/units:0;
+ lines.forEach(l=>{l.base=Math.max(0,flat?(units?E0/units:0):l.fab+shared);l.aN=ceilTo(l.base/denN,step);l.aMn=ceilTo(l.base/denM,step)});
+ const autoN=avg('aN'), autoMin=avg('aMn');
+ const kN=f.priceN>0&&autoN>0?f.priceN/autoN:null, kM=f.minR>0&&autoMin>0?f.minR/autoMin:null;
+ lines.forEach(l=>{
+  l.nrm=kN?(flat?f.priceN:roundS(l.aN*kN)):l.aN;
+  l.adsc=ceilTo(l.nrm*(1-(f.discount||0)/100),step);
+  l.dsc=f.discR>0?Math.max(0,l.nrm-f.discR):l.adsc;
+  l.mn=kM?(flat?f.minR:roundS(l.aMn*kM)):l.aMn;
+  l.used=f.pmode==='disc'?l.dsc:f.pmode==='min'?l.mn:l.nrm;
+ });
+ const unitNormal=avg('nrm'), unitDisc=avg('dsc'), unitMin=avg('mn'), unitUsed=avg('used'), autoDp=avg('adsc');
+ const total=lines.reduce((a,l)=>a+l.used*l.qty,0);
+ const dep=total*dRate;
  const cash=cash0+dep;
  const effective=Math.max(0,cash-leftover);
  const hpp=units?effective/units:0;
- const total=unitUsed*units, profit=total-effective;
+ lines.forEach(l=>{l.cost=l.base+l.used*dRate;l.unitCost=l.cost});
+ const profit=total-effective;
  const dp=f.dp||0, balance=Math.max(0,total-dp);
  if(!units) warn.push('Jumlah order masih 0.');
  if(units&&unitUsed<hpp) warn.push('Harga jual di bawah HPP — order ini merugi.');
+ if(units&&!(unitUsed<hpp)&&lines.some(l=>l.used<l.cost-0.5)) warn.push('Ada ukuran yang harganya di bawah biayanya sendiri (rugi di ukuran itu).');
  if(units&&unitUsed<unitMin&&unitUsed>=hpp) warn.push('Harga jual di bawah batas margin minimum untuk nego.');
- return {autoN,autoDR:unitNormal-autoDp,autoMin,units,shortQ,longQ,rows,fabricTotal,acc,accTotal,labor,laborTotal,printTotal,printRate,elec,rework,dep,depRate:dRate*100,cash,leftover,effective,hpp,unitNormal,unitDisc,unitUsed,unitMin,total,profit,margin:total?profit/total*100:0,dp,balance,warn};
+ return {lines,flat,autoN,autoDR:unitNormal-autoDp,autoMin,units,shortQ,longQ,rows,fabricTotal,acc,accTotal,labor,laborTotal,printTotal,printRate,elec,rework,dep,depRate:dRate*100,cash,leftover,effective,hpp,unitNormal,unitDisc,unitUsed,unitMin,total,profit,margin:total?profit/total*100:0,dp,balance,warn};
 }
 </script>
 <script id="ui">
@@ -499,11 +528,11 @@ function readForm(){
   fabricB:$('f-fabricB').value,fabricC:$('f-fabricC').value,colorP:$('f-colorP').value.trim(),color1:$('f-color1').value.trim(),color2:$('f-color2').value.trim(),color3:$('f-color3').value.trim(),extra:$('f-extra').value,
   collar:$('f-collar').value,cuff:$('f-cuff').value,leg:$('f-leg').value,elastic:$('f-elastic').value,stripes:N('f-stripes'),armtape:N('f-armtape'),label:$('f-label').value,otheracc:$('f-otheracc').value,
   print:$('f-print').value,sheets:N('f-sheets'),designs:N('f-designs'),rework:N('f-rework'),leftover:N('f-leftover'),spQty:N('f-spq'),spBody:N('f-spb'),spPants:N('f-spp'),spNote:$('f-spn').value,dp:N('f-dp'),
-  margin:30,discount:3,minmargin:15,priceN:N('f-priceN'),discR:N('f-discR'),minR:N('f-minR'),tailors:tailors.map(x=>({name:x.name,pcs:+x.pcs||0})),design:designImg,pmode:$('f-pmode').value,sizes};
+  margin:30,discount:3,minmargin:15,priceN:N('f-priceN'),discR:N('f-discR'),minR:N('f-minR'),tailors:tailors.map(x=>({name:x.name,pcs:+x.pcs||0})),design:designImg,pmode:$('f-pmode').value,sizeprice:$('f-sizeprice').value,sizes};
 }
 function setForm(f){
- if(f.group==='SMA / Dewasa')f={...f,group:'Dewasa'};f={priceN:'',discR:'',minR:'',...f};tailors=(f.tailors&&f.tailors.length?f.tailors.map(x=>({name:x.name||'',pcs:+x.pcs||0})):blankT());designImg=f.design||'';renderDesign();renderTailors();
- const map={priceN:'f-priceN',discR:'f-discR',minR:'f-minR',code:'f-code',date:'f-date',customer:'f-customer',group:'f-group',product:'f-product',fabricB:'f-fabricB',fabricC:'f-fabricC',colorP:'f-colorP',color1:'f-color1',color2:'f-color2',color3:'f-color3',extra:'f-extra',collar:'f-collar',cuff:'f-cuff',leg:'f-leg',elastic:'f-elastic',stripes:'f-stripes',armtape:'f-armtape',label:'f-label',otheracc:'f-otheracc',print:'f-print',sheets:'f-sheets',designs:'f-designs',rework:'f-rework',leftover:'f-leftover',dp:'f-dp',spQty:'f-spq',spBody:'f-spb',spPants:'f-spp',spNote:'f-spn',pmode:'f-pmode'};
+ if(f.group==='SMA / Dewasa')f={...f,group:'Dewasa'};f={priceN:'',discR:'',minR:'',sizeprice:'size',...f};tailors=(f.tailors&&f.tailors.length?f.tailors.map(x=>({name:x.name||'',pcs:+x.pcs||0})):blankT());designImg=f.design||'';renderDesign();renderTailors();
+ const map={priceN:'f-priceN',discR:'f-discR',minR:'f-minR',code:'f-code',date:'f-date',customer:'f-customer',group:'f-group',product:'f-product',fabricB:'f-fabricB',fabricC:'f-fabricC',colorP:'f-colorP',color1:'f-color1',color2:'f-color2',color3:'f-color3',extra:'f-extra',collar:'f-collar',cuff:'f-cuff',leg:'f-leg',elastic:'f-elastic',stripes:'f-stripes',armtape:'f-armtape',label:'f-label',otheracc:'f-otheracc',print:'f-print',sheets:'f-sheets',designs:'f-designs',rework:'f-rework',leftover:'f-leftover',dp:'f-dp',spQty:'f-spq',spBody:'f-spb',spPants:'f-spp',spNote:'f-spn',pmode:'f-pmode',sizeprice:'f-sizeprice'};
  Object.entries(map).forEach(([k,id])=>{if(f[k]!==undefined)$(id).value=f[k]});
  SIZES.forEach(z=>{$(`z-${z}-s`).value=f.sizes?.[z]?.s||0;$(`z-${z}-l`).value=f.sizes?.[z]?.l||0});
  refresh();
@@ -543,7 +572,8 @@ function refresh(){
  ['f-fabricC','f-colorP','f-leg','f-elastic','f-stripes'].forEach(id=>$(id).disabled=!hasC);
  $('warnOffer').innerHTML=warnBox(c.warn);$('warnCost').innerHTML=warnBox(c.warn);
  $('fabricTable').innerHTML=`<table><thead><tr><th>Komponen</th><th>Kain</th><th class="r">Kain bersih</th><th class="r">Waste</th><th class="r">Beli (kg)</th><th class="r">Harga/kg</th><th class="r">Biaya</th></tr></thead><tbody>${c.rows.map(r=>`<tr><td>${esc(r.label)}</td><td>${esc(r.fabric)}</td><td class="r">${r.net.toFixed(2)} kg</td><td class="r">${r.waste}%</td><td class="r">${r.kg.toFixed(2)}</td><td class="r">${rp(r.price)}</td><td class="r">${rp(r.cost)}</td></tr>`).join('')||'<tr><td colspan="7" class="sub">Belum ada data.</td></tr>'}<tr><th colspan="6">Total kain</th><th class="r">${rp(c.fabricTotal)}</th></tr></tbody></table>`;
- $('offerKpis').innerHTML=(()=>{const un=f2.product==='setelan'?'pasang':'pcs',tr=(a,u,tt,b)=>`<tr><${b?'th':'td'}>${a}</${b?'th':'td'}><${b?'th':'td'} class="r">${u}</${b?'th':'td'}><${b?'th':'td'} class="r">${tt}</${b?'th':'td'}></tr>`;return `<table><thead><tr><th>Keterangan</th><th class="r">Per ${un}</th><th class="r">Total (${c.units} ${un})</th></tr></thead><tbody>`+tr('Total harga bahan','—',rp(c.fabricTotal))+tr('Harga dasar (bahan + upah + listrik + penyusutan mesin, dll.)',rp(c.hpp),rp(c.effective))+tr('Harga markup wajar (harga yang diajukan)',rp(c.unitNormal),rp(c.unitNormal*c.units))+tr('Batas nego maksimal (harga terendah)',rp(c.unitMin),rp(c.unitMin*c.units))+tr('Harga diskon (jika pelanggan tidak menawar)',rp(c.unitDisc),rp(c.unitDisc*c.units))+tr('Harga disepakati',rp(c.unitUsed),rp(c.total),1)+tr('DP diterima','—',rp(c.dp))+tr('Sisa pelunasan saat serah terima','—',rp(c.balance),1)+`</tbody></table>`})();
+ $('sizePriceTable').innerHTML=c.units?`<table><thead><tr><th>Ukuran</th><th class="r">Jml</th><th class="r">Biaya/unit</th><th class="r">Markup wajar</th><th class="r">Diskon</th><th class="r">Nego min</th><th class="r">Disepakati</th><th class="r">Subtotal</th></tr></thead><tbody>${c.lines.map(l=>`<tr><td>${esc(l.size)}${l.type?' — '+esc(l.type):''}</td><td class="r">${l.qty}</td><td class="r">${rp(l.cost)}</td><td class="r">${rp(l.nrm)}</td><td class="r">${rp(l.dsc)}</td><td class="r">${rp(l.mn)}</td><td class="r"><b>${rp(l.used)}</b></td><td class="r">${rp(l.used*l.qty)}</td></tr>`).join('')}<tr><th colspan="7">${c.flat?'Total (harga sama rata)':'Total (harga per ukuran)'}</th><th class="r">${rp(c.total)}</th></tr></tbody></table>`:'';
+ $('offerKpis').innerHTML=(()=>{const un=f2.product==='setelan'?'pasang':'pcs',tr=(a,u,tt,b)=>`<tr><${b?'th':'td'}>${a}</${b?'th':'td'}><${b?'th':'td'} class="r">${u}</${b?'th':'td'}><${b?'th':'td'} class="r">${tt}</${b?'th':'td'}></tr>`;return `<table><thead><tr><th>Keterangan</th><th class="r">Per ${un} (rata-rata)</th><th class="r">Total (${c.units} ${un})</th></tr></thead><tbody>`+tr('Total harga bahan','—',rp(c.fabricTotal))+tr('Harga dasar (bahan + upah + listrik + penyusutan mesin, dll.)',rp(c.hpp),rp(c.effective))+tr('Harga markup wajar (harga yang diajukan)',rp(c.unitNormal),rp(c.unitNormal*c.units))+tr('Batas nego maksimal (harga terendah)',rp(c.unitMin),rp(c.unitMin*c.units))+tr('Harga diskon (jika pelanggan tidak menawar)',rp(c.unitDisc),rp(c.unitDisc*c.units))+tr('Harga disepakati',rp(c.unitUsed),rp(c.total),1)+tr('DP diterima','—',rp(c.dp))+tr('Sisa pelunasan saat serah terima','—',rp(c.balance),1)+`</tbody></table>`})();
  const ref=f2.product==='baju'?'Acuan harga lapangan baju cotton: Rp90.000/pcs.':f2.product==='setelan'?'Acuan harga lapangan setelan: Rp95.000/set (langganan Rp85.000/set).':'Belum ada acuan harga celana saja.';
  $('refPrice').textContent=ref+' Bandingkan dengan harga/unit di atas.';
  const rowsC=[['Kain utama (termasuk waste)',c.rows.reduce((a,r)=>a+r.kg,0).toFixed(2)+' kg',c.fabricTotal],...c.acc.map(a=>[a.label,`${a.qty.toFixed(2)} ${a.unit}`,a.cost]),...c.labor,['Biaya printing (DTF / sublimasi)',f2.print==='none'?'tanpa printing':`${c.units} × ${f2.sheets} lembar × ${rp(c.printRate)}`,c.printTotal],['Listrik','tagihan ÷ order per bulan',c.elec],['Cadangan rework',`${f2.rework} kejadian × ${rp(db.s.reworkCost)}`,c.rework],['Penyusutan mesin (jahit, obras, overdeck, potong, press, printer, komputer, dll.)',`${c.depRate}% × ${rp(c.unitUsed)} × ${c.units}`,c.dep]];
@@ -640,7 +670,7 @@ function printOffer(){
  const fb=db.fabrics.find(x=>x.id===f.fabricB),fc=db.fabrics.find(x=>x.id===f.fabricC);
  const fabric=[f.product!=='celana'&&fb?.name,f.product!=='baju'&&fc?.name].filter(Boolean).join(' / ');
  const w=window.open('','_blank');if(!w){alert('Izinkan pop-up untuk mencetak.');return}
- w.document.write(`<!doctype html><meta charset="utf-8"><title>Penawaran ${esc(f.code)}</title><style>body{font:14px/1.5 system-ui,sans-serif;max-width:720px;margin:30px auto;padding:0 16px;color:#172238}table{border-collapse:collapse;width:100%;margin:10px 0}td,th{border:1px solid #cfd8e3;padding:6px 8px;text-align:left}th{background:#f1f5f9}h1{margin:0}.r{text-align:right}</style><h1>PENAWARAN HARGA</h1><p>No. ${esc(f.code)} &nbsp;|&nbsp; Tanggal ${esc(f.date)}<br>Kepada: <b>${esc(f.customer||'-')}</b> (${esc(f.group)})</p><table><tr><th>Produk</th><td>${prod}</td></tr><tr><th>Bahan</th><td>${esc(fabric)}</td></tr><tr><th>Warna</th><td>${esc(colors)}</td></tr><tr><th>Catatan model</th><td>${esc(f.extra||'-')}</td></tr></table>${f.design?`<p style="margin:14px 0 4px"><b>Desain yang disepakati</b></p><div style="text-align:center;border:1px solid #cfd8e3;padding:8px"><img src="${f.design}" style="max-width:100%;max-height:340px" alt="Desain"></div>`:''}<table><tr><th>Ukuran</th><th>Lengan pendek</th><th>Lengan panjang</th><th>Jumlah</th></tr>${sizeRows}${f.spQty>0?`<tr><td colspan="3">Special order ${esc(f.spNote||'')}</td><td>${f.spQty}</td></tr>`:''}<tr><th colspan="3">Total</th><th>${c.units}</th></tr></table><table><tr><th>Harga per ${f.product==='setelan'?'set':'pcs'}</th><td class="r">${rp(c.unitUsed)}</td></tr><tr><th>Total harga</th><td class="r"><b>${rp(c.total)}</b></td></tr><tr><th>DP</th><td class="r">${rp(c.dp)}</td></tr><tr><th>Sisa pelunasan</th><td class="r">${rp(c.balance)}</td></tr></table><p style="font-size:12px;color:#64748b">Harga dapat berubah jika jumlah, ukuran, bahan, atau desain berubah.</p>`);
+ w.document.write(`<!doctype html><meta charset="utf-8"><title>Penawaran ${esc(f.code)}</title><style>body{font:14px/1.5 system-ui,sans-serif;max-width:720px;margin:30px auto;padding:0 16px;color:#172238}table{border-collapse:collapse;width:100%;margin:10px 0}td,th{border:1px solid #cfd8e3;padding:6px 8px;text-align:left}th{background:#f1f5f9}h1{margin:0}.r{text-align:right}</style><h1>PENAWARAN HARGA</h1><p>No. ${esc(f.code)} &nbsp;|&nbsp; Tanggal ${esc(f.date)}<br>Kepada: <b>${esc(f.customer||'-')}</b> (${esc(f.group)})</p><table><tr><th>Produk</th><td>${prod}</td></tr><tr><th>Bahan</th><td>${esc(fabric)}</td></tr><tr><th>Warna</th><td>${esc(colors)}</td></tr><tr><th>Catatan model</th><td>${esc(f.extra||'-')}</td></tr></table>${f.design?`<p style="margin:14px 0 4px"><b>Desain yang disepakati</b></p><div style="text-align:center;border:1px solid #cfd8e3;padding:8px"><img src="${f.design}" style="max-width:100%;max-height:340px" alt="Desain"></div>`:''}<table><tr><th>Ukuran</th><th>Lengan pendek</th><th>Lengan panjang</th><th>Jumlah</th></tr>${sizeRows}${f.spQty>0?`<tr><td colspan="3">Special order ${esc(f.spNote||'')}</td><td>${f.spQty}</td></tr>`:''}<tr><th colspan="3">Total</th><th>${c.units}</th></tr></table><table><tr><th>Ukuran</th><th>Jumlah</th><th class="r">Harga per ${f.product==='setelan'?'set':'pcs'}</th><th class="r">Subtotal</th></tr>${c.lines.map(l=>`<tr><td>${esc(l.size)}${l.type?' — '+esc(l.type):''}</td><td>${l.qty}</td><td class="r">${rp(l.used)}</td><td class="r">${rp(l.used*l.qty)}</td></tr>`).join('')}</table><table><tr><th>Total harga</th><td class="r"><b>${rp(c.total)}</b></td></tr><tr><th>DP</th><td class="r">${rp(c.dp)}</td></tr><tr><th>Sisa pelunasan</th><td class="r">${rp(c.balance)}</td></tr></table><p style="font-size:12px;color:#64748b">Harga dapat berubah jika jumlah, ukuran, bahan, atau desain berubah.</p>`);
  w.document.close();w.focus();const im=w.document.querySelector('img'),pr=()=>w.print();if(im&&!im.complete){im.onload=pr;im.onerror=pr}else setTimeout(pr,200);
 }
 function backupData(){const b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='konveksi-cost-pro-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href)}
