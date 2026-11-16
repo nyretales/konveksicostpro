@@ -206,13 +206,15 @@ details.card[open] summary{margin-bottom:16px}
   <div class="field"><label>Warna 1 (dasar / badan)</label><input id="f-color1" placeholder="Contoh Merah"></div>
   <div class="field"><label>Warna 2 (lengan)</label><input id="f-color2" placeholder="Contoh Kuning"></div>
   <div class="field"><label>Warna 3 (variasi lain, opsional)</label><input id="f-color3" placeholder="Kosongkan jika tidak ada"></div>
+  <div class="field"><label>Jenis kain (celana)</label><select id="f-fabricC"></select></div>
+  <div class="field"><label>Warna celana</label><input id="f-colorP" placeholder="Contoh Hitam"></div>
   <div class="field full"><label>Variasi tambahan</label><textarea id="f-extra" rows="2" placeholder="Panel samping, list, saku, kombinasi khusus..."></textarea></div>
  </div></div>
 
  <details class="card"><summary>Opsi lanjutan (boleh dilewati — sudah ada nilai bawaan)</summary>
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-   <div class="field"><label>Kain celana</label><select id="f-fabricC"></select></div>
-   <div class="field"><label>Warna celana</label><input id="f-colorP" placeholder="Contoh Hitam"></div>
+   
+   
    <div class="field"><label>Printing</label><select id="f-print"><option value="dtf" selected>DTF (vendor)</option><option value="sub">Sublimasi (sendiri)</option><option value="none">Tanpa printing</option></select></div>
    <div class="field"><label>Lembar print per pcs</label><input id="f-sheets" type="number" min="0" step="0.5" value="1"></div>
    <div class="field"><label>Jumlah desain</label><input id="f-designs" type="number" min="0" value="1"></div>
