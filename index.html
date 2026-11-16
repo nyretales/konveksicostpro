@@ -670,40 +670,8 @@ function printOffer(){
  const fb=db.fabrics.find(x=>x.id===f.fabricB),fc=db.fabrics.find(x=>x.id===f.fabricC);
  const fabric=[f.product!=='celana'&&fb?.name,f.product!=='baju'&&fc?.name].filter(Boolean).join(' / ');
  const w=window.open('','_blank');if(!w){alert('Izinkan pop-up untuk mencetak.');return}
- const sub=f.product==='setelan'?'set':'pcs';
- const css=`@page{size:A4 portrait;margin:0}
-*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}
-body{font:10px/1.35 system-ui,sans-serif;color:#172238}
-.sheet{width:210mm;height:148mm;padding:7mm 9mm 5mm;overflow:hidden;position:relative;border-bottom:1px dashed #b8c2cf}
-.fit{transform-origin:0 0}
-h1{margin:0;font-size:16px;letter-spacing:.5px}
-.head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #172238;padding-bottom:4px;margin-bottom:6px}
-.head p{margin:0;text-align:right}
-.cols{display:grid;grid-template-columns:1fr 1fr;gap:3mm 6mm}
-table{border-collapse:collapse;width:100%;margin:0 0 4px}
-td,th{border:1px solid #cfd8e3;padding:2px 5px;text-align:left;vertical-align:top}
-th{background:#f1f5f9}.r{text-align:right}
-.dz{text-align:center;border:1px solid #cfd8e3;padding:3px;margin-bottom:4px}
-.dz img{max-width:100%;max-height:42mm}
-.ttl{margin:0 0 2px;font-weight:700}
-.foot{margin:3px 0 0;font-size:8.5px;color:#64748b}
-@media screen{body{background:#e5e9ef;padding:12px}.sheet{background:#fff;box-shadow:0 2px 10px #0003}}
-@media print{.sheet{border-bottom:0}}`;
- const left=`<table><tr><th style="width:24%">Produk</th><td>${prod}</td></tr><tr><th>Bahan</th><td>${esc(fabric)}</td></tr><tr><th>Warna</th><td>${esc(colors)}</td></tr><tr><th>Catatan</th><td>${esc(f.extra||'-')}</td></tr></table>`
-  +`<table><tr><th>Ukuran</th><th>L. pendek</th><th>L. panjang</th><th>Jumlah</th></tr>${sizeRows}${f.spQty>0?`<tr><td colspan="3">Special order ${esc(f.spNote||'')}</td><td>${f.spQty}</td></tr>`:''}<tr><th colspan="3">Total</th><th>${c.units}</th></tr></table>`
-  +(f.design?`<div class="dz"><div class="ttl">Desain yang disepakati</div><img src="${f.design}" alt="Desain"></div>`:'');
- const right=`<table><tr><th>Ukuran</th><th>Jml</th><th class="r">Harga/${sub}</th><th class="r">Subtotal</th></tr>${c.lines.map(l=>`<tr><td>${esc(l.size)}${l.type?' — '+esc(l.type):''}</td><td>${l.qty}</td><td class="r">${rp(l.used)}</td><td class="r">${rp(l.used*l.qty)}</td></tr>`).join('')}</table>`
-  +`<table><tr><th>Total harga</th><td class="r"><b>${rp(c.total)}</b></td></tr><tr><th>DP</th><td class="r">${rp(c.dp)}</td></tr><tr><th>Sisa pelunasan</th><td class="r">${rp(c.balance)}</td></tr></table>`
-  +`<p class="foot">Harga dapat berubah jika jumlah, ukuran, bahan, atau desain berubah.</p>`;
- const w=window.open('','_blank');if(!w){alert('Izinkan pop-up untuk mencetak.');return}
- w.document.write(`<!doctype html><meta charset="utf-8"><title>Penawaran ${esc(f.code)}</title><style>${css}</style><div class="sheet"><div class="fit" id="fit"><div class="head"><h1>PENAWARAN HARGA</h1><p>No. ${esc(f.code)} &nbsp;|&nbsp; Tanggal ${esc(f.date)}<br>Kepada: <b>${esc(f.customer||'-')}</b> (${esc(f.group)})</p></div><div class="cols"><div>${left}</div><div>${right}</div></div></div></div>`);
- w.document.close();w.focus();
- const doPrint=()=>{const fit=w.document.getElementById('fit'),box=fit.parentElement,cs=w.getComputedStyle(box),availH=box.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom),availW=box.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);
-  fit.style.width=availW+'px';const k=Math.min(1,availH/fit.scrollHeight);
-  if(k<1){fit.style.width=(availW/k)+'px';fit.style.transform='scale('+k+')'}
-  w.print()};
- const im=w.document.querySelector('img');
- if(im&&!im.complete){im.onload=doPrint;im.onerror=doPrint}else setTimeout(doPrint,200);
+ w.document.write(`<!doctype html><meta charset="utf-8"><title>Penawaran ${esc(f.code)}</title><style>@page{size:A4 portrait;margin:8mm 10mm}html,body{margin:0;padding:0}body{font:11px/1.35 system-ui,sans-serif;color:#172238}table{border-collapse:collapse;width:100%;margin:5px 0}td,th{border:1px solid #cfd8e3;padding:3px 6px;text-align:left}th{background:#f1f5f9}h1{margin:0 0 4px;font-size:18px}p{margin:4px 0}img{max-height:150px!important}.r{text-align:right}@media screen{body{max-width:720px;margin:20px auto;padding:0 16px}}</style><h1>PENAWARAN HARGA</h1><p>No. ${esc(f.code)} &nbsp;|&nbsp; Tanggal ${esc(f.date)}<br>Kepada: <b>${esc(f.customer||'-')}</b> (${esc(f.group)})</p><table><tr><th>Produk</th><td>${prod}</td></tr><tr><th>Bahan</th><td>${esc(fabric)}</td></tr><tr><th>Warna</th><td>${esc(colors)}</td></tr><tr><th>Catatan model</th><td>${esc(f.extra||'-')}</td></tr></table>${f.design?`<p style="margin:14px 0 4px"><b>Desain yang disepakati</b></p><div style="text-align:center;border:1px solid #cfd8e3;padding:8px"><img src="${f.design}" style="max-width:100%;max-height:340px" alt="Desain"></div>`:''}<table><tr><th>Ukuran</th><th>Lengan pendek</th><th>Lengan panjang</th><th>Jumlah</th></tr>${sizeRows}${f.spQty>0?`<tr><td colspan="3">Special order ${esc(f.spNote||'')}</td><td>${f.spQty}</td></tr>`:''}<tr><th colspan="3">Total</th><th>${c.units}</th></tr></table><table><tr><th>Ukuran</th><th>Jumlah</th><th class="r">Harga per ${f.product==='setelan'?'set':'pcs'}</th><th class="r">Subtotal</th></tr>${c.lines.map(l=>`<tr><td>${esc(l.size)}${l.type?' — '+esc(l.type):''}</td><td>${l.qty}</td><td class="r">${rp(l.used)}</td><td class="r">${rp(l.used*l.qty)}</td></tr>`).join('')}</table><table><tr><th>Total harga</th><td class="r"><b>${rp(c.total)}</b></td></tr><tr><th>DP</th><td class="r">${rp(c.dp)}</td></tr><tr><th>Sisa pelunasan</th><td class="r">${rp(c.balance)}</td></tr></table><p style="font-size:12px;color:#64748b">Harga dapat berubah jika jumlah, ukuran, bahan, atau desain berubah.</p>`);
+ w.document.close();w.focus();const im=w.document.querySelector('img'),pr=()=>{try{const b=w.document.body,avail=140*96/25.4;b.style.zoom=1;const h=b.scrollHeight;if(h>avail)b.style.zoom=Math.max(0.5,avail/h)}catch(e){}w.print()};if(im&&!im.complete){im.onload=pr;im.onerror=pr}else setTimeout(pr,200);
 }
 function backupData(){const b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='konveksi-cost-pro-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href)}
 function restoreData(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);
