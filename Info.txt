@@ -1,0 +1,134 @@
+l
+**1. Data pesanan**
+- Kaos/baju saja: dijual Rp 90.000/pcs, bahan cotton
+- Setelan baju + celana: dijual Rp 95.000/pasang, bahan baju TC / celana Lotto
+
+**2. Upah borongan**
+- Penjahit (4 orang): Rp 6.000 per pcs
+- Pemotong (1): Rp 5.000, per pasang
+- Desainer (1): Rp 5.000 per desain
+- Pelipat/packing (1): Rp 500 per pcs
+- Operator press (1): Rp 2.500 per pcs
+
+**3. Kain yang dipakai** (semua dibeli per kg)
+Bahan Baju:
+- TC: Rp 82.000, lebar 120 cm
+- Cotton: Rp 175.000, lebar 120 cm
+- Cotton Combed 24s: Rp 175.000, lebar 120 cm
+- Jersey: Rp 77.000, lebar 178 cm
+Bahan Celana:
+- Lotto: Rp 80.000, lebar 100 cm
+
+**4. Hasil dan pemakaian kain**
+- Cotton Combed 24s: 1 kg jadi 4 baju, sisa sekitar 10%
+- TC: 1 kg jadi 6 baju, sisa sekitar 6%
+- Lotto: 1 kg jadi 6 celana, sisa sekitar 6%
+
+perkiraan pemakaian bahan untuk membuat sepasang baju dan celana ukuran M
+- Badan baju (TC): 0,15 kg, ukuran M
+- Lengan baju (TC): 0,1 kg, ukuran M (panjang)
+- Celana (Lotto): 0,25 kg, ukuran M
+
+**5. Bahan tambahan**
+- Benang jahit: Rp 10.000/rol, panjang total sekitar 450 m, dipakai sekitar 10 m/pasang 
+- Benang obras: Rp 40.000/rol, panjang total sekitar 24.000 m, dipakai sekitar 20 m/pasang 
+- Rib kerah: Rp 80.000/kg, dipakai 7×30 cm/pcs
+- Rib lengan: Rp 80.000/kg, dipakai sekitar 13×15 cm/pcs
+- Rib bawah celana: Rp 80.000/kg, dipakai sekitar 15×20 cm/pcs
+- Karet pinggang: Rp 45.000/rol, total panjang sekitar 26 m, dipakai sekitar 60 cm/pcs
+- Pita/list/piping: Rp 25.000/rol, 6 m
+[
+Pita list celana three stripes:
+- Satu roll pita = 6 meter.
+- Satu celana panjang dewasa dengan tiga garis di sisi kanan dan kiri (enam jalur) memakai sekitar 5,5–6 meter.
+- Pengguna mengisi jumlah celana panjang dewasa yang memakai three stripes; kebutuhan pita dihitung otomatis.
+- Pita tambahan lain (misalnya pita lengan three stripes) jumlah pemakaian dihitung sama dengan yang dipakai di celana.
+
+- Label ukuran/merek: Rp 5.000/rol, isi 300 pcs, dipakai 1/pcs
+- Plastik/kemasan: Rp 500/pcs, 1 pcs
+- Aksesori lainnya: Rp 1.000/pcs, 1 pcs
+
+**6. Printing**
+- sablon DTF per pcs/lembar Rp 5.000
+- Sablon sublimasi per pcs/lembar Rp 3.000
+
+**7. Mesin dan listrik**
+- Mesin jahit 3 unit, obras 3, potong 1, press DTF/sublimasi 1, sublimasi/printer 1
+- Listrik Rp 250.000 per bulan
+- Lama produksi order biasa: 7 hari
+
+**8. Sisa dan kerusakan**
+
+- Kain sisa disimpan dan dipakai lagi untuk order berikutnya
+- Sisa layak per order: 0,5 kg, bernilai Rp 30.000/kg
+- Kain terbuang: 10%
+- Pernah salah produksi, biaya perbaikan Rp 50.000 per kejadian, kerusakan sekitar 5 pcs per order
+
+**9. Contoh order (setelan, 50 set)**
+- Uang diterima: Rp 4.250.000
+- Kain: Rp 1.500.000
+- Bahan tambahan: Rp 260.000
+- Upah borongan: Rp 950.000
+- DTF/sublimasi: Rp 50.000
+- Listrik/transport/lain: Rp 20.000
+- Nilai sisa: Rp 50.000
+- Tidak ada biaya salah produksi
+- Sisa dilunasi setelah barang diterima: Rp. 500.000
+
+**10. Dokumen:** semua ada (nota kain, nota bahan tambahan, nota DTF, catatan upah, catatan order).
+
+Ada tiga hal yang perlu dicek sebelum dihitung:
+- Harga jual setelan di bagian 1 Rp 95.000, sedangkan contoh order Rp 4.250.000 ÷ 50 = Rp 85.000 per set. (harga Rp. 85.000 adalah harga diskon langganan)
+
+
+Berikut daftar lengkap standar ukuran 
+
+**1. TK / PAUD (usia 4-6 tahun)**
+Potongan lebih longgar untuk memudahkan gerak anak.
+
+| Ukuran | LD | PB | Lengan Pendek | Lengan Panjang | Panjang Celana |
+|---|---|---|---|---|---|
+| S | 34 | 44 | 14 | 34 | 58 |
+| M | 36 | 46 | 15 | 36 | 61 |
+| L | 38 | 48 | 16 | 38 | 64 |
+| XL | 40 | 50 | 17 | 40 | 67 |
+| XXL | 42 | 52 | 18 | 42 | 70 |
+
+**2. SD / MI (usia 7-12 tahun)**
+S-M umumnya untuk kelas 1-3, L-XXL untuk kelas 4-6.
+
+| Ukuran | LD | PB | Lengan Pendek | Lengan Panjang | Panjang Celana |
+|---|---|---|---|---|---|
+| S | 38 | 50 | 16 | 39 | 68 |
+| M | 40 | 53 | 17 | 42 | 72 |
+| L | 42 | 56 | 18 | 45 | 76 |
+| XL | 44 | 59 | 19 | 48 | 80 |
+| XXL | 46 | 62 | 20 | 51 | 84 |
+| Jumbo (3XL) | 49 | 65 | 21 | 53 | 87 |
+
+**3. SMP / MTs (usia 13-15 tahun)**
+Mulai masuk kategori remaja dengan potongan badan lebih panjang.
+
+| Ukuran | LD | PB | Lengan Pendek | Lengan Panjang | Panjang Celana |
+|---|---|---|---|---|---|
+| S | 44 | 60 | 19 | 49 | 85 |
+| M | 46 | 63 | 20 | 51 | 88 |
+| L | 48 | 66 | 21 | 53 | 91 |
+| XL | 50 | 69 | 22 | 55 | 94 |
+| XXL | 52 | 72 | 23 | 57 | 97 |
+| 3XL | 55 | 74 | 24 | 59 | 100 |
+
+**4. SMA / SMK / MA & Dewasa (guru/umum)**
+Memakai standar pola reguler dewasa yang sama.
+
+| Ukuran | LD | PB | Lengan Pendek | Lengan Panjang | Panjang Celana |
+|---|---|---|---|---|---|
+| S | 48 | 66 | 21 | 54 | 92 |
+| M | 50 | 69 | 22 | 56 | 95 |
+| L | 52 | 72 | 23 | 58 | 98 |
+| XL | 54 | 75 | 24 | 60 | 101 |
+| XXL | 57 | 77 | 25 | 62 | 103 |
+| 3XL | 60 | 79 | 26 | 64 | 105 |
+| 4XL | 63 | 81 | 27 | 66 | 107 |
+
+Keterangan: LD = Lebar Dada, PB = Panjang Baju.
