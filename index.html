@@ -93,6 +93,7 @@ details.card[open] summary{margin-bottom:16px}
 
 @media(max-width:480px){#offerKpis th,#offerKpis td{padding:9px 6px;font-size:12px}#offerKpis td:first-child,#offerKpis th:first-child{min-width:104px}}
 .tl{display:grid;grid-template-columns:1fr 96px auto;gap:10px;margin-bottom:12px;align-items:center}
+.dz{display:block;max-width:100%;max-height:340px;margin:0 auto;object-fit:contain;border-radius:24px;background:#fff;box-shadow:var(--out)}
 /* ---------- CHROME RING DOCK (rose gold on #1F1D2B) ---------- */
 .dockwrap{position:fixed;left:0;right:0;bottom:0;z-index:40;pointer-events:none;padding:26px 8px calc(10px + env(safe-area-inset-bottom,0px));background:linear-gradient(to top,rgba(255,248,239,.92) 35%,transparent)}
 .hold{display:flex;justify-content:center;perspective:1000px}
@@ -210,6 +211,10 @@ details.card[open] summary{margin-bottom:16px}
   <div class="field"><label>Warna celana</label><input id="f-colorP" placeholder="Contoh Hitam"></div>
   <div class="field full"><label>Variasi tambahan</label><textarea id="f-extra" rows="2" placeholder="Panel samping, list, saku, kombinasi khusus..."></textarea></div>
  </div></div>
+
+ <div class="card"><h2>Gambar desain</h2><div id="designBox"></div>
+  <label class="btn small" style="display:inline-flex">Pilih / ambil foto<input type="file" accept="image/*" hidden onchange="pickDesign(event)"></label>
+  <p class="sub" style="margin-top:10px">1 gambar per order, otomatis diperkecil. Tercetak di lembar Penawaran, tersimpan bersama order saat menekan Simpan order, dan ikut di Backup.</p></div>
 
  <details class="card"><summary>Opsi lanjutan (boleh dilewati — sudah ada nilai bawaan)</summary>
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -443,7 +448,7 @@ function calc(f,db){
 </script>
 <script id="ui">
 const blankT=()=>['A','B','C','D'].map(()=>({name:'',pcs:0}));
-let tailors=blankT();
+let tailors=blankT();let designImg='';
 const KEY='konveksi_cost_pro_v2';
 const $=id=>document.getElementById(id);
 const rp=n=>'Rp'+Math.round(Number(n||0)).toLocaleString('id-ID');
@@ -467,10 +472,10 @@ function readForm(){
   fabricB:$('f-fabricB').value,fabricC:$('f-fabricC').value,colorP:$('f-colorP').value.trim(),color1:$('f-color1').value.trim(),color2:$('f-color2').value.trim(),color3:$('f-color3').value.trim(),extra:$('f-extra').value,
   collar:$('f-collar').value,cuff:$('f-cuff').value,leg:$('f-leg').value,elastic:$('f-elastic').value,stripes:N('f-stripes'),armtape:N('f-armtape'),label:$('f-label').value,otheracc:$('f-otheracc').value,
   print:$('f-print').value,sheets:N('f-sheets'),designs:N('f-designs'),rework:N('f-rework'),leftover:N('f-leftover'),spQty:N('f-spq'),spBody:N('f-spb'),spPants:N('f-spp'),spNote:$('f-spn').value,dp:N('f-dp'),
-  margin:30,discount:3,minmargin:15,priceN:N('f-priceN'),discR:N('f-discR'),minR:N('f-minR'),tailors:tailors.map(x=>({name:x.name,pcs:+x.pcs||0})),pmode:$('f-pmode').value,sizes};
+  margin:30,discount:3,minmargin:15,priceN:N('f-priceN'),discR:N('f-discR'),minR:N('f-minR'),tailors:tailors.map(x=>({name:x.name,pcs:+x.pcs||0})),design:designImg,pmode:$('f-pmode').value,sizes};
 }
 function setForm(f){
- if(f.group==='SMA / Dewasa')f={...f,group:'Dewasa'};f={priceN:'',discR:'',minR:'',...f};tailors=(f.tailors&&f.tailors.length?f.tailors.map(x=>({name:x.name||'',pcs:+x.pcs||0})):blankT());renderTailors();
+ if(f.group==='SMA / Dewasa')f={...f,group:'Dewasa'};f={priceN:'',discR:'',minR:'',...f};tailors=(f.tailors&&f.tailors.length?f.tailors.map(x=>({name:x.name||'',pcs:+x.pcs||0})):blankT());designImg=f.design||'';renderDesign();renderTailors();
  const map={priceN:'f-priceN',discR:'f-discR',minR:'f-minR',code:'f-code',date:'f-date',customer:'f-customer',group:'f-group',product:'f-product',fabricB:'f-fabricB',fabricC:'f-fabricC',colorP:'f-colorP',color1:'f-color1',color2:'f-color2',color3:'f-color3',extra:'f-extra',collar:'f-collar',cuff:'f-cuff',leg:'f-leg',elastic:'f-elastic',stripes:'f-stripes',armtape:'f-armtape',label:'f-label',otheracc:'f-otheracc',print:'f-print',sheets:'f-sheets',designs:'f-designs',rework:'f-rework',leftover:'f-leftover',dp:'f-dp',spQty:'f-spq',spBody:'f-spb',spPants:'f-spp',spNote:'f-spn',pmode:'f-pmode'};
  Object.entries(map).forEach(([k,id])=>{if(f[k]!==undefined)$(id).value=f[k]});
  SIZES.forEach(z=>{$(`z-${z}-s`).value=f.sizes?.[z]?.s||0;$(`z-${z}-l`).value=f.sizes?.[z]?.l||0});
@@ -526,6 +531,13 @@ function evenTailors(){const n=last?.c.units||0;if(!tailors.length)tailors=[{nam
 function updTailorInfo(c){const el=$('tailorInfo');if(!el)return;if(!tailors.length){el.textContent='';return}
  const sum=tailors.reduce((a,x)=>a+(+x.pcs||0),0),d=c.units-sum;if(!sum){el.textContent='Belum diisi: upah dihitung dibagi rata ke jumlah penjahit di Pengaturan.';el.style.color='';return}
  el.textContent=`Terbagi ${sum} dari ${c.units} pcs`+(d>0?` — sisa ${d} pcs belum dibagi`:d<0?` — kelebihan ${-d} pcs`:' ✓');el.style.color=d?'#d12b30':'#12804f'}
+function renderDesign(){const el=$('designBox');if(!el)return;
+ el.innerHTML=designImg?`<img class="dz" src="${designImg}" alt="Gambar desain"><div class="actions" style="margin:12px 0 0"><button class="btn danger small" onclick="delDesign()">Hapus gambar</button></div>`:'<p class="sub" style="margin-bottom:12px">Belum ada gambar desain.</p>'}
+function pickDesign(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();
+ r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,800/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
+  const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);designImg=c.toDataURL('image/jpeg',.75);renderDesign()};
+  im.onerror=()=>alert('Gambar tidak bisa dibaca.');im.src=r.result};r.readAsDataURL(file);e.target.value=''}
+function delDesign(){designImg='';renderDesign()}
 function resetForm(){if(!confirm('Mulai form order baru? Isian saat ini dikosongkan.'))return;
  setForm({code:nextCode(),date:new Date().toISOString().slice(0,10),customer:'',color1:'',color2:'',color3:'',colorP:'',extra:'',sizes:{},stripes:0,armtape:0,rework:0,dp:0,designs:1,sheets:1,leftover:db.s.leftoverValue,spQty:0,spBody:0,spPants:0,spNote:'',print:'none',collar:'none',cuff:'none',leg:'none',elastic:'yes',label:'yes',otheracc:'no'});go('input')}
 function saveOrder(){
@@ -562,8 +574,8 @@ function printOffer(){
  const fb=db.fabrics.find(x=>x.id===f.fabricB),fc=db.fabrics.find(x=>x.id===f.fabricC);
  const fabric=[f.product!=='celana'&&fb?.name,f.product!=='baju'&&fc?.name].filter(Boolean).join(' / ');
  const w=window.open('','_blank');if(!w){alert('Izinkan pop-up untuk mencetak.');return}
- w.document.write(`<!doctype html><meta charset="utf-8"><title>Penawaran ${esc(f.code)}</title><style>body{font:14px/1.5 system-ui,sans-serif;max-width:720px;margin:30px auto;padding:0 16px;color:#172238}table{border-collapse:collapse;width:100%;margin:10px 0}td,th{border:1px solid #cfd8e3;padding:6px 8px;text-align:left}th{background:#f1f5f9}h1{margin:0}.r{text-align:right}</style><h1>PENAWARAN HARGA</h1><p>No. ${esc(f.code)} &nbsp;|&nbsp; Tanggal ${esc(f.date)}<br>Kepada: <b>${esc(f.customer||'-')}</b> (${esc(f.group)})</p><table><tr><th>Produk</th><td>${prod}</td></tr><tr><th>Bahan</th><td>${esc(fabric)}</td></tr><tr><th>Warna</th><td>${esc(colors)}</td></tr><tr><th>Catatan model</th><td>${esc(f.extra||'-')}</td></tr></table><table><tr><th>Ukuran</th><th>Lengan pendek</th><th>Lengan panjang</th><th>Jumlah</th></tr>${sizeRows}${f.spQty>0?`<tr><td colspan="3">Special order ${esc(f.spNote||'')}</td><td>${f.spQty}</td></tr>`:''}<tr><th colspan="3">Total</th><th>${c.units}</th></tr></table><table><tr><th>Harga per ${f.product==='setelan'?'set':'pcs'}</th><td class="r">${rp(c.unitUsed)}</td></tr><tr><th>Total harga</th><td class="r"><b>${rp(c.total)}</b></td></tr><tr><th>DP</th><td class="r">${rp(c.dp)}</td></tr><tr><th>Sisa pelunasan</th><td class="r">${rp(c.balance)}</td></tr></table><p style="font-size:12px;color:#64748b">Harga dapat berubah jika jumlah, ukuran, bahan, atau desain berubah.</p>`);
- w.document.close();w.focus();w.print();
+ w.document.write(`<!doctype html><meta charset="utf-8"><title>Penawaran ${esc(f.code)}</title><style>body{font:14px/1.5 system-ui,sans-serif;max-width:720px;margin:30px auto;padding:0 16px;color:#172238}table{border-collapse:collapse;width:100%;margin:10px 0}td,th{border:1px solid #cfd8e3;padding:6px 8px;text-align:left}th{background:#f1f5f9}h1{margin:0}.r{text-align:right}</style><h1>PENAWARAN HARGA</h1><p>No. ${esc(f.code)} &nbsp;|&nbsp; Tanggal ${esc(f.date)}<br>Kepada: <b>${esc(f.customer||'-')}</b> (${esc(f.group)})</p><table><tr><th>Produk</th><td>${prod}</td></tr><tr><th>Bahan</th><td>${esc(fabric)}</td></tr><tr><th>Warna</th><td>${esc(colors)}</td></tr><tr><th>Catatan model</th><td>${esc(f.extra||'-')}</td></tr></table>${f.design?`<p style="margin:14px 0 4px"><b>Desain yang disepakati</b></p><div style="text-align:center;border:1px solid #cfd8e3;padding:8px"><img src="${f.design}" style="max-width:100%;max-height:340px" alt="Desain"></div>`:''}<table><tr><th>Ukuran</th><th>Lengan pendek</th><th>Lengan panjang</th><th>Jumlah</th></tr>${sizeRows}${f.spQty>0?`<tr><td colspan="3">Special order ${esc(f.spNote||'')}</td><td>${f.spQty}</td></tr>`:''}<tr><th colspan="3">Total</th><th>${c.units}</th></tr></table><table><tr><th>Harga per ${f.product==='setelan'?'set':'pcs'}</th><td class="r">${rp(c.unitUsed)}</td></tr><tr><th>Total harga</th><td class="r"><b>${rp(c.total)}</b></td></tr><tr><th>DP</th><td class="r">${rp(c.dp)}</td></tr><tr><th>Sisa pelunasan</th><td class="r">${rp(c.balance)}</td></tr></table><p style="font-size:12px;color:#64748b">Harga dapat berubah jika jumlah, ukuran, bahan, atau desain berubah.</p>`);
+ w.document.close();w.focus();const im=w.document.querySelector('img'),pr=()=>w.print();if(im&&!im.complete){im.onload=pr;im.onerror=pr}else setTimeout(pr,200);
 }
 function backupData(){const b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='konveksi-cost-pro-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href)}
 function restoreData(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);
@@ -571,7 +583,7 @@ function restoreData(e){const file=e.target.files[0];if(!file)return;const r=new
   else if(Array.isArray(x.orders)&&x.materials){if(confirm('Ini backup versi lama. Hanya riwayat order (ringkasan) yang diimpor; harga & pola tidak diubah. Lanjut?')){x.orders.forEach(o=>{const cash=['fabric','accessories','labor','printing','electricity','other','rework'].reduce((s,k)=>s+Number(o[k]||0),0),eff=Math.max(0,cash-Number(o.leftover||0)),rev=Number(o.revenue||0);db.orders.push({id:uid(),savedAt:o.date||'',code:o.code,customer:o.customer,date:o.date,sum:{units:Number(o.qty||0),total:rev,unit:o.qty?rev/o.qty:0,cash,effective:eff,profit:rev-eff,margin:rev?(rev-eff)/rev*100:null}})});persist();renderSaved();alert('Riwayat lama diimpor.')}}
   else throw 0}catch(err){alert('File backup tidak valid.')}e.target.value=''};r.readAsText(file)}
 function resetAll(){if(confirm('Reset SEMUA pengaturan dan order? Unduh backup dulu.')){localStorage.removeItem(KEY);db={...structuredClone(DEFAULTS),orders:[]};fillFabricSelects();renderSettings();renderSaved();refresh()}}
-document.addEventListener('DOMContentLoaded',()=>{buildStatic();renderTailors();refresh()});
+document.addEventListener('DOMContentLoaded',()=>{buildStatic();renderTailors();renderDesign();refresh()});
 </script>
 <script>
 (()=>{
